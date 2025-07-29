@@ -8,3 +8,7 @@
 ## 更新说明
 2025.07.29  
 发布初始版本
+
+## 如何下载
+1、先添加自定义集成，后在HACS中搜索"和风天气"，安装此集成，重启Home Assistant  
+2、将 `qweather` 文件夹复制到你的 Home Assistant 配置目录下的 `custom_components` 文件夹中，重启 Home Assistant
