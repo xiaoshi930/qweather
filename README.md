@@ -12,3 +12,11 @@
 ## 如何下载
 1、先添加自定义集成，后在HACS中搜索"和风天气"，安装此集成，重启Home Assistant  
 2、将 `qweather` 文件夹复制到你的 Home Assistant 配置目录下的 `custom_components` 文件夹中，重启 Home Assistant
+
+## 搜索天气更新
+~~~
+action: qweather.set_city
+data:
+  entity_id: weather.wo_de_jia  ## 天气实体
+  city: 海南                    ## 想要查询的城市，或者""置为空
+~~~
