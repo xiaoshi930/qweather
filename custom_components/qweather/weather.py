@@ -443,9 +443,9 @@ class HeFengWeather(WeatherEntity):
                 _LOGGER.debug(f"收到城市更新信号: {self._city}")
             
             # 立即触发数据更新
-            await self._data.async_update(dt_util.now(), force_update=True)
-            self.async_write_ha_state()
-            _LOGGER.debug(f"实体 {self.entity_id} 已立即更新")
+            # await self._data.async_update(dt_util.now(), force_update=True)
+            # self.async_write_ha_state()
+            # _LOGGER.debug(f"实体 {self.entity_id} 已立即更新")
         
         # 注册信号监听器
         from homeassistant.helpers.dispatcher import async_dispatcher_connect
