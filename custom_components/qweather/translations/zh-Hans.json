@@ -1,1 +1,45 @@
-
+{
+    "config": {
+        "title": "和风天气",
+        "step": {
+            "user": {
+                "title": "和风天气",
+                "description": "",
+                "data": {
+                    "host": "API 主机地址（xxxxxx.re.qweatherapi.com）",
+                    "api_key": "API 密钥",
+                    "api_version": "API版本,默认是v7,请不要修改",
+                    "name" : "名称（不可重复）",
+                    "zone_or_device": "选择获取定位设备",
+                    "update_interval_minutes": "数据更新周期",
+                    "no_update_at_night": "数据夜间不更新",
+                    "location_mode": "选择模式"
+                } 
+              }
+        },
+        "error": {
+            "communication": "Key可能无效，请检查输入值."
+        },
+        "abort": {
+            "single_instance_allowed": "仅允许单个配置.",
+            "already_configured": "请勿重复配置."
+        }
+    },
+    "options": {
+      "step": {
+        "user": {
+          "title": "和风天气",
+          "description": "",
+          "data": {
+              "host": "API 主机地址（xxxxxx.re.qweatherapi.com）",
+              "api_key": "API 密钥",
+              "api_version": "API版本,默认是v7,请不要修改",
+              "name" : "名称（不可重复）",
+              "zone_or_device": "选择获取定位设备",
+              "update_interval_minutes": "数据更新周期",
+              "no_update_at_night": "数据夜间不更新"
+          } 
+        }
+    }
+  }
+}
