@@ -1,1 +1,11 @@
-
+{
+  "domain": "qweather",
+  "name": "和风天气",
+  "codeowners": [],
+  "config_flow": true,		
+  "documentation": "https://github.com/xiaoshi930/qweather",	
+  "dependencies": [],	
+  "iot_class": "cloud_polling",
+  "requirements": ["requests", "beautifulsoup4"],
+  "version": "2025.7.29"
+}
