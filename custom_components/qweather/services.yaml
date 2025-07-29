@@ -1,1 +1,12 @@
-
+set_city:
+  name: 设置城市
+  description: 为天气实体设置城市名称
+  fields:
+    entity_id:
+      description: 天气实体ID
+      example: weather.wo_de_jia
+      required: true
+    city:
+      description: 城市名称
+      example: "北京"
+      required: true
