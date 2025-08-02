@@ -280,8 +280,16 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
     async def async_step_user(self, user_input=None):
         # 修改集成的配置选项
         if user_input is not None:
-            self._config.update(user_input)
-            return self.async_create_entry(title="", data=self._config)
+            # 确保更新间隔时间正确保存为整数值
+            if CONF_UPDATE_INTERVAL in user_input:
+                # 记录原始值和类型
+                _LOGGER.debug(f"保存前的更新间隔值: {user_input[CONF_UPDATE_INTERVAL]}, 类型: {type(user_input[CONF_UPDATE_INTERVAL])}")
+                # 确保是整数
+                user_input[CONF_UPDATE_INTERVAL] = int(user_input[CONF_UPDATE_INTERVAL])
+                _LOGGER.debug(f"保存后的更新间隔值: {user_input[CONF_UPDATE_INTERVAL]}, 类型: {type(user_input[CONF_UPDATE_INTERVAL])}")
+            
+            # 直接返回选项，而不是更新self._config
+            return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
             step_id="user",
