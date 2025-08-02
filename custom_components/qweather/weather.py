@@ -151,9 +151,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             # 使用默认配置的经纬度
             location = config_entry.data.get("location")
     
-    update_interval_minutes = config_entry.options.get(CONF_UPDATE_INTERVAL, 10)
+    # 优先从data中读取更新间隔值，因为这是用户最新设置的值
+    if CONF_UPDATE_INTERVAL in config_entry.data:
+        update_interval_minutes = int(config_entry.data.get(CONF_UPDATE_INTERVAL, 30))
+        _LOGGER.debug(f"从data中读取的更新间隔时间: {update_interval_minutes} 分钟")
+    else:
+        # 如果data中没有，则从options中读取
+        update_interval_minutes = config_entry.options.get(CONF_UPDATE_INTERVAL, 30)
+        # 记录原始值和类型
+        _LOGGER.debug(f"配置中的更新间隔原始值: {update_interval_minutes}, 类型: {type(update_interval_minutes)}")
+        # 确保是整数
+        update_interval_minutes = int(update_interval_minutes)
     starttime = config_entry.options.get(CONF_STARTTIME, 0)
     no_update_at_night = config_entry.options.get(CONF_NO_UPDATE_AT_NIGHT, False)
+    _LOGGER.debug(f"从配置中读取的更新间隔时间: {update_interval_minutes} 分钟")
     config = {}
     config[CONF_API_KEY] = api_key
     
@@ -187,6 +198,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # 注册定时更新
     async_track_time_interval(hass, custom_update, timedelta(minutes=update_interval_minutes))
     _LOGGER.debug('[%s]刷新间隔时间: %s 分钟，夜间不更新: %s', name, update_interval_minutes, no_update_at_night)
+    
     if data._current:  # 检查是否有有效数据
         async_add_entities([HeFengWeather(data, unique_id, name)], True)
         _LOGGER.info(f"成功添加天气实体: {name}")
@@ -219,7 +231,6 @@ class HeFengWeather(WeatherEntity):
         self._daily_forecast = None
         self._hourly_forecast = None
         self._daily_twice_forecast = None
-        self._hourly_summary = None
         self._feelslike = None
         self._cloud = None
         self._dew = None
@@ -418,7 +429,6 @@ class HeFengWeather(WeatherEntity):
                 ATTR_AQI: self._aqi,
                 ATTR_DAILY_FORECAST: daily_forecast,
                 ATTR_HOURLY_FORECAST: hourly_forecast,
-                "forecast_hourly": self._hourly_summary,
                 "warning": weather_warning,
                 "winddir": self._winddir,
                 "windscale": self._windscale,
@@ -441,11 +451,6 @@ class HeFengWeather(WeatherEntity):
             if "city" in data:
                 self._city = data["city"]
                 _LOGGER.debug(f"收到城市更新信号: {self._city}")
-            
-            # 立即触发数据更新
-            # await self._data.async_update(dt_util.now(), force_update=True)
-            # self.async_write_ha_state()
-            # _LOGGER.debug(f"实体 {self.entity_id} 已立即更新")
         
         # 注册信号监听器
         from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -483,7 +488,6 @@ class HeFengWeather(WeatherEntity):
         self._aqi = self._data._aqi
         self._winddir = self._data._winddir
         self._windscale = self._data._windscale
-        self._hourly_summary = self._data._hourly_summary
         self._weather_warning = self._data._weather_warning
         self._sun_data = self._data._sun_data
         self._city = self._data._city
@@ -545,7 +549,7 @@ class WarningData:
 
 class WeatherData(object):
     """天气相关的数据，存储在这个类中."""
-    def __init__(self, hass, name, unique_id, host, config, usetoken, location , starttime, zone_or_device=None, update_interval_minutes=10):
+    def __init__(self, hass, name, unique_id, host, config, usetoken, location , starttime, zone_or_device=None, update_interval_minutes=60):
         super().__init__()
         """初始化函数."""
         self.hass = hass
@@ -593,7 +597,6 @@ class WeatherData(object):
         self._update_api_urls()
         self._update_time = None
         self._refreshtime = None
-        self._hourly_summary = None
         
         self._pubtime = None
         self._updatetime_now = 0 
@@ -622,18 +625,6 @@ class WeatherData(object):
     def condition(self):
         """Return the current condition."""
         return CONDITION_MAP.get(self._current.get("icon"), EXCEPTIONAL)
-        
-        
-    def get_forecast_summary(self, url):
-        header = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-        }
-        response = request('GET', url, headers=header)
-        response.encoding = 'utf-8'        
-        soup = BeautifulSoup(response.text, "html.parser")
-        responsetext = soup.select(".current-abstract")[0].contents[0].strip()
-        _LOGGER.debug(responsetext)
-        return responsetext
         
     def validate_location(location):
         if not isinstance(location, str):
@@ -754,6 +745,7 @@ class WeatherData(object):
         async def fetch_data(url, update_attr, data_attr, min_interval, json_key=None, force_update=False):
             last_update = getattr(self, update_attr, 0) or 0
             # 检查是否需要更新，如果是强制更新则跳过时间间隔检查
+            _LOGGER.debug(f"上次更新时间: {last_update}, 当前时间: {current_time}, 最小间隔: {min_interval}")
             if not force_update and current_time - last_update < min_interval:
                 _LOGGER.debug(f"跳过更新 {data_attr}：时间间隔不足 ({current_time - last_update} < {min_interval})")
                 return False
@@ -780,6 +772,7 @@ class WeatherData(object):
                     if data is not None:
                         setattr(self, data_attr, data)
                         setattr(self, update_attr, current_time)
+                        _LOGGER.info(f"成功访问API: {url}")
                         return True
             except (aiohttp.ClientError, ValueError) as e:
                 _LOGGER.warning("API请求失败 (%s): %s", url, str(e))
@@ -802,13 +795,6 @@ class WeatherData(object):
             # 执行所有任务
             results = await asyncio.gather(*tasks)
             _LOGGER.debug("API更新结果: %s", results)
-            _LOGGER.debug("API更新结果: now_url: %s", self.now_url)
-            _LOGGER.debug("API更新结果: daily_url: %s", self.daily_url)
-            _LOGGER.debug("API更新结果: air_url: %s", self.air_url)
-            _LOGGER.debug("API更新结果: hourly_url: %s", self.hourly_url)
-            _LOGGER.debug("API更新结果: warning_url: %s", self.warning_url)
-            _LOGGER.debug("API更新结果: geo_url: %s", self.geo_url)
-            _LOGGER.debug("API更新结果: sun_url: %s", self.sun_url)
             
             # 单独处理日出日落数据
             if self._sundate != self._todaydate:
@@ -850,33 +836,6 @@ class WeatherData(object):
                 except (aiohttp.ClientError, ValueError, IndexError, KeyError) as e:
                     _LOGGER.warning("城市信息API请求失败: %s", str(e))
                     self._city = "未知"
-                        
-            # 生成预报摘要摘要
-            if self._fxlink:
-                try:             
-                    hourly_summary = await self.hass.async_add_executor_job(
-                        self.get_forecast_summary, self._fxlink
-                    )
-                    self._hourly_summary = hourly_summary
-                except Exception as error:
-                    _LOGGER.warning("获取预报摘要失败: %s", error)
-                    self._hourly_summary = ""
-       
-        
-        # 记录调试信息
-        # if _LOGGER.isEnabledFor(logging.DEBUG):
-            # _LOGGER.debug("%s:实时天气数据 %s", self._name, datetime.fromtimestamp(self._updatetime_now))
-            # _LOGGER.debug(pformat(self._current))
-            # _LOGGER.debug("%s:逐天预报数据 %s", self._name, datetime.fromtimestamp(self._updatetime_daily))
-            # _LOGGER.debug(pformat(self._daily_data))
-            # _LOGGER.debug("%s:小时预报数据 %s", self._name, datetime.fromtimestamp(self._updatetime_hourly))
-            # _LOGGER.debug(pformat(self._hourly_data))
-            # _LOGGER.debug("%s:预警信息 %s", self._name, datetime.fromtimestamp(self._updatetime_warning))
-            # _LOGGER.debug(pformat(self._warning_data))
-            # _LOGGER.debug("%s:空气数据 %s", self._name, datetime.fromtimestamp(self._updatetime_air))
-            # _LOGGER.debug(pformat(self._air_data))
-            # _LOGGER.debug("%s:日出日落数据 %s", self._name, self._sundate)
-            # _LOGGER.debug(pformat(self._sun_data))
         
         if isinstance(self._current, dict):
             # 标准处理
@@ -891,7 +850,6 @@ class WeatherData(object):
             self._winddir = self._current.get("windDir", "")
             self._windscale = self._current.get("windScale", "")
             self._textnight = self._current.get("textNight", "")
-            self._hourly_summary = self._current.get("hourly_summary", "")
             self._winddirday = self._current.get("windDirday", "")
             self._winddirnight = self._current.get("windDirNight", "")
             self._windscaleday = self._current.get("windScaleDay", "")
