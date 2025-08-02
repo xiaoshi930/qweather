@@ -208,9 +208,10 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
             vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
         })
+        # 每次显示表单时不带出之前的参数
         return self.async_show_form(
             step_id="user",
-            data_schema = data_schema, 
+            data_schema=data_schema,
             errors=self._errors,
         )
 
@@ -224,7 +225,6 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if host == entry.data.get(CONF_NAME):
                 return True
 
-#修改集成
 class QweatherOptionsFlow(config_entries.OptionsFlow):
     # 初始化选项流
     def __init__(self, config_entry):
@@ -271,9 +271,10 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
             vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
         })
+        # 每次显示表单时不带出之前的参数
         return self.async_show_form(
             step_id="user",
-            data_schema = data_schema,  
+            data_schema=data_schema,
             errors=self._errors,
         )
     
@@ -288,28 +289,47 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
                 user_input[CONF_UPDATE_INTERVAL] = int(user_input[CONF_UPDATE_INTERVAL])
                 _LOGGER.debug(f"保存后的更新间隔值: {user_input[CONF_UPDATE_INTERVAL]}, 类型: {type(user_input[CONF_UPDATE_INTERVAL])}")
             
-            # 直接返回选项，而不是更新self._config
-            return self.async_create_entry(title="", data=user_input)
+            # 保留原始配置中的其他参数
+            updated_data = {**self._config}
+            # 更新用户修改的参数
+            updated_data.update(user_input)
+            # 记录日志
+            _LOGGER.debug(f"更新后的配置: {updated_data}")
+            
+            # 更新配置条目的data
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                data=updated_data
+            )
+            _LOGGER.info(f"已更新配置条目的data: {updated_data}")
+            
+            # 返回更新后的配置
+            return self.async_create_entry(title="", data=updated_data)
 
+        # 获取之前的配置值
+        config_data = {**self._config}
+        config_data.update(self._config_entry.options)
+        
+        # 只显示指定的四个参数
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
+                    vol.Required(
                         CONF_API_KEY,
-                        default=self._config_entry.options.get(CONF_API_KEY, "")
+                        default=config_data.get(CONF_API_KEY, "")
                     ): str,
-                    vol.Optional(
+                    vol.Required(
                         CONF_HOST,
-                        default=self._config_entry.options.get(CONF_HOST, "api.qweather.com")
+                        default=config_data.get(CONF_HOST, "api.qweather.com")
                     ): str,
-                    vol.Optional(
+                    vol.Required(
                         CONF_UPDATE_INTERVAL,
-                        default=self._config_entry.options.get(CONF_UPDATE_INTERVAL, 60)
+                        default=config_data.get(CONF_UPDATE_INTERVAL, 60)
                     ): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
-                    vol.Optional(
+                    vol.Required(
                         CONF_NO_UPDATE_AT_NIGHT,
-                        default=self._config_entry.options.get(CONF_NO_UPDATE_AT_NIGHT, False)
+                        default=config_data.get(CONF_NO_UPDATE_AT_NIGHT, False)
                     ): bool,
                 }
             )
