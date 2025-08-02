@@ -6,6 +6,10 @@
 [和风天气数据更新时间](https://dev.qweather.com/docs/resource/glossary/#update-time)  
 
 ## 更新说明
+2025.08.02  
+1、删除天气预报（预报来源api不可访问）  
+2、修复更新时间间隔不生效问题  
+
 2025.07.29  
 发布初始版本
 
