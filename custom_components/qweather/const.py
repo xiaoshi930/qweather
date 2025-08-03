@@ -2,7 +2,7 @@ VERSION = '2025.7.29'
 ROOT_PATH = '/qweather-local'
 DEFAULT_NAME = "和风天气"
 DOMAIN = "qweather"
-PLATFORMS = ["weather"]
+PLATFORMS = ["weather", "text"]
 
 ATTRIBUTION = "数据来源和风天气"
 MANUFACTURER = "和风天气"
