@@ -52,78 +52,15 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         self._errors = {}
         
-        # 注册服务
-        async def async_set_city(call):
-            """Handle the service call to set city."""
-            data = call.data
-            city = call.data.get("city")
-            entity_id = data.get(ATTR_ENTITY_ID)
-            
-            if not entity_id:
-                _LOGGER.error("Missing required parameter: entity_id")
-                return
-            if not entity_id.startswith("weather."):
-                _LOGGER.error("必须是weather实体类型")
-                return
-            if not city:
-                _LOGGER.error("必须包含属性: city")
-                return
-            
-            # 更新城市值
-            # 查找匹配的配置条目
-            _LOGGER.debug(f"开始查找与实体 {entity_id} 关联的配置条目")
-            matching_entry = None
-            
-            # 获取实体注册信息
-            entity_registry = self.hass.data["entity_registry"]
-            entity_entry = entity_registry.async_get(entity_id)
-            
-            if not entity_entry:
-                _LOGGER.error(f"实体 {entity_id} 未在实体注册表中找到")
-                return
-            
-            # 遍历所有配置条目
-            for entry in self.hass.config_entries.async_entries(DOMAIN):
-                # 检查配置条目ID是否与实体关联
-                if entry.entry_id == entity_entry.config_entry_id:
-                    matching_entry = entry
-                    break
-                
-                # 检查实体ID是否存储在entry.data中
-                if "entity_id" in entry.data and entry.data["entity_id"] == entity_id:
-                    matching_entry = entry
-                    break
-                
-                # 检查实体ID是否存储在entry.options中
-                if "entity_id" in entry.options and entry.options["entity_id"] == entity_id:
-                    matching_entry = entry
-                    break
-            
-            if not matching_entry:
-                _LOGGER.error(f"未找到与天气实体 {entity_id} 关联的配置条目")
-                return
-                
-            self.hass.config_entries.async_update_entry(
-                matching_entry,
-                data={
-                    **matching_entry.data,
-                    "城市搜索": city
-                }
-            )
-            _LOGGER.info(f"已为天气实体 {entity_id} 更新城市为 {city}")
-        
-        # 注册服务
-        self.hass.services.async_register(
-            DOMAIN, 
-            "set_city",
-            async_set_city,
-            schema=vol.Schema({
-                vol.Required(ATTR_ENTITY_ID): cv.entity_id,
-                vol.Required("city"): str
-            })
-        )
-        
         if user_input is not None:
+            # 检查城市搜索模式是否已存在
+            if user_input["location_mode"] == "城市搜索":
+                # 检查是否已经存在使用城市搜索模式的集成
+                for entry in self.hass.config_entries.async_entries(DOMAIN):
+                    if entry.data.get("location_mode") == "城市搜索":
+                        self._errors["base"] = "城市搜索模式只能添加1次集成"
+                        return await self._show_config_form(user_input)
+            
             if user_input["location_mode"] == "选择设备":
                 if CONF_ZONE_OR_DEVICE in user_input:
                     # 验证实体是否存在
@@ -154,6 +91,13 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors["base"] = "communication"
                 _LOGGER.debug("API响应: %s", redata)
             else:
+                # 如果是城市搜索模式，再次检查是否已存在
+                if user_input["location_mode"] == "城市搜索":
+                    for entry in self.hass.config_entries.async_entries(DOMAIN):
+                        if entry.data.get("location_mode") == "城市搜索":
+                            self._errors["base"] = "城市搜索模式只能添加1次集成"
+                            return await self._show_config_form(user_input)
+                
                 await self.async_set_unique_id(f"qweather_{user_input[CONF_NAME].replace(' ', '_')}")
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -216,9 +160,14 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_import(self, user_input):
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-        return self.async_create_entry(title="configuration.yaml", data={})
+        # 如果是城市搜索模式，检查是否已存在
+        if user_input.get("location_mode") == "城市搜索":
+            for entry in self._async_current_entries():
+                if entry.data.get("location_mode") == "城市搜索":
+                    return self.async_abort(reason="city_search_already_exists")
+        
+        # 对于其他模式，允许多次添加
+        return self.async_create_entry(title="configuration.yaml", data=user_input)
     
     async def _check_existing(self, host):
         for entry in self._async_current_entries():
