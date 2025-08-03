@@ -116,7 +116,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         # 搜索城市模式
         city = config_entry.data.get("城市搜索")
         if not city:
-            _LOGGER.error("搜索城市模式下，必须输入城市名称")
             return
         
         # 调用接口获取经纬度
@@ -368,32 +367,8 @@ class HeFengWeather(WeatherEntity):
         
         return forecast_data
     async def async_added_to_hass(self):
-        """Register update signal handler when entity is added to hass."""
-        from homeassistant.helpers.dispatcher import async_dispatcher_connect
-        from .const import QWEATHER_UPDATE_SIGNAL
-
-        @callback
-        async def handle_update_signal(data):
-            """处理更新信号，立即更新数据。"""
-            if "city" in data:
-                self._city = data["city"]
-                _LOGGER.debug(f"收到城市更新信号: {self._city}")
-            
-            # 如果包含城市搜索信息，更新 WeatherData 配置 (现在无条件更新)
-            _LOGGER.debug(f"1更新 WeatherData 配置: 城市搜索={self._city}")
-            self._data._config["城市搜索"] = self._city
-            _LOGGER.debug(f"2更新 WeatherData 配置: 城市搜索={self._city}")
-            self._data._config["location_mode"] = "城市搜索"
-            _LOGGER.debug(f"3更新 WeatherData 配置: 城市搜索={self._city}")
-            
-            # 立即触发数据更新
-            await self._data.async_update(dt_util.now(), force_update=True)
-            self.async_write_ha_state()
-            _LOGGER.debug(f"实体 {self.entity_id} 已立即更新")
-
-        self._update_listener = async_dispatcher_connect(
-            self.hass, f"{QWEATHER_UPDATE_SIGNAL}_{self.entity_id}", handle_update_signal
-        )
+        """当实体被添加到 Home Assistant 时调用。"""
+        pass
 
     async def async_forecast_twice_daily(self) -> list[Forecast]:
         """Return the twice daily forecast."""
@@ -440,62 +415,47 @@ class HeFengWeather(WeatherEntity):
             })
         return attributes
         
-    async def async_added_to_hass(self):
-        """Connect to dispatcher listening for entity data notifications."""
-        from .const import QWEATHER_UPDATE_SIGNAL
-        
-        # 设置更新监听器
-        @callback
-        async def handle_update_signal(data):
-            """处理更新信号，立即更新数据。"""
-            if "city" in data:
-                self._city = data["city"]
-                _LOGGER.debug(f"收到城市更新信号: {self._city}")
-        
-        # 注册信号监听器
-        from homeassistant.helpers.dispatcher import async_dispatcher_connect
-        self._update_listener = async_dispatcher_connect(
-            self.hass, f"{QWEATHER_UPDATE_SIGNAL}_{self.entity_id}", handle_update_signal
-        ) 
-        
         # 设置定时更新
-        async def update_forecasts(_: datetime) -> None:
-            if self._forecast_daily:
-                self._forecast_daily = (
-                    self._forecast_daily[1:] + self._forecast_daily[:1]
-                )
-            if self._forecast_hourly:
-                self._forecast_hourly = (
-                    self._forecast_hourly[1:] + self._forecast_hourly[:1]
-                )
-            if self._forecast_twice_daily:
-                self._forecast_twice_daily = (
-                    self._forecast_twice_daily[1:] + self._forecast_twice_daily[:1]
-                )
-            await self.async_update_listeners(None)
+    async def update_forecasts(self, _: datetime) -> None:
+        if self._forecast_daily:
+            self._forecast_daily = (
+                self._forecast_daily[1:] + self._forecast_daily[:1]
+            )
+        if self._forecast_hourly:
+            self._forecast_hourly = (
+                self._forecast_hourly[1:] + self._forecast_hourly[:1]
+            )
+        if self._forecast_twice_daily:
+            self._forecast_twice_daily = (
+                self._forecast_twice_daily[1:] + self._forecast_twice_daily[:1]
+            )
+        await self.async_update_listeners(None)
       
-    async def async_update(self):
-        self._condition = self._data._condition
-        self._condition_cn = self._data._condition_cn
-        self._native_temperature = self._data._native_temperature
-        self._humidity = self._data._humidity
-        self._native_pressure = self._data._native_pressure
-        self._native_wind_speed = self._data._native_wind_speed
-        self._wind_bearing = self._data._wind_bearing
-        self._daily_forecast = self._data._daily_forecast
-        self._hourly_forecast = self._data._hourly_forecast
-        self._daily_twice_forecast = self._data._daily_twice_forecast
-        self._aqi = self._data._aqi
-        self._winddir = self._data._winddir
-        self._windscale = self._data._windscale
-        self._weather_warning = self._data._weather_warning
-        self._sun_data = self._data._sun_data
-        self._city = self._data._city
-        self._icon = self._data._icon
-        self._feelslike = self._data._feelslike
-        self._cloud = self._data._cloud
-        self._dew = self._data._dew
-        self._updatetime = self._data._refreshtime
+    async def async_update(self, **kwargs):
+        force_update = kwargs.get('force_update', False)
+        if force_update or not hasattr(self, '_last_update') or \
+           (dt_util.now() - self._last_update).total_seconds() > self._data._update_interval_minutes * 60:
+            self._condition = self._data._condition
+            self._condition_cn = self._data._condition_cn
+            self._native_temperature = self._data._native_temperature
+            self._humidity = self._data._humidity
+            self._native_pressure = self._data._native_pressure
+            self._native_wind_speed = self._data._native_wind_speed
+            self._wind_bearing = self._data._wind_bearing
+            self._daily_forecast = self._data._daily_forecast
+            self._hourly_forecast = self._data._hourly_forecast
+            self._daily_twice_forecast = self._data._daily_twice_forecast
+            self._aqi = self._data._aqi
+            self._winddir = self._data._winddir
+            self._windscale = self._data._windscale
+            self._weather_warning = self._data._weather_warning
+            self._sun_data = self._data._sun_data
+            self._city = self._data._city
+            self._icon = self._data._icon
+            self._feelslike = self._data._feelslike
+            self._cloud = self._data._cloud
+            self._dew = self._data._dew
+            self._updatetime = self._data._refreshtime
 
 @dataclass
 class Forecast:
@@ -688,9 +648,9 @@ class WeatherData(object):
                 _LOGGER.error(f"设备 {self._zone_or_device} 不存在")   
 
         # 如果是城市搜索模式，检查配置中是否有城市更新
-        elif "城市搜索" in self._config:
+        elif "城市搜索" in self._config and self._config.get("location_mode") == "城市搜索":
             city = self._config.get("城市搜索")
-            _LOGGER.debug(f"city: {city}")
+            _LOGGER.debug(f"城市搜索模式，当前城市: {city}")
             if city:
                 # 调用接口获取经纬度
                 geo_url = f"https://{self._host}/geo/v2/city/lookup?location={city}&lang=zh&key={self._config.get(CONF_API_KEY)}"
@@ -704,6 +664,9 @@ class WeatherData(object):
                                     latitude = data["location"][0]["lat"]
                                     new_location = f"{longitude},{latitude}"
                                     
+                                    # 更新城市名称
+                                    self._city = city
+                                    
                                     # 如果位置有变化，更新位置和API URL
                                     if new_location != self._location:
                                         self._location = new_location
@@ -711,13 +674,16 @@ class WeatherData(object):
                                         
                                         # 更新所有 API URL
                                         self._update_api_urls()
+                                        
+                                        # 强制更新数据
+                                        force_update = True
                                     else:
                                         _LOGGER.debug(f"城市位置未变化: {self._location}")
                 except Exception as e:
                     _LOGGER.error(f"获取城市经纬度异常: {str(e)}")
         _LOGGER.debug(f"设置HTTP连接参数")
         # 设置HTTP连接参数
-        timeout = aiohttp.ClientTimeout(total=3)
+        timeout = aiohttp.ClientTimeout(total=10)
         connector = aiohttp.TCPConnector(limit=80, force_close=True)
         
         # 统一管理更新间隔，使用用户配置的更新间隔
