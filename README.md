@@ -5,7 +5,10 @@
 [官方开发文档](https://dev.qweather.com/docs/)   
 [和风天气数据更新时间](https://dev.qweather.com/docs/resource/glossary/#update-time)  
 
-## 更新说明
+## 更新说明  
+2025.08.08 
+1、增加ha启动时，优先启动“移动应用” ，后启动本集成
+
 2025.08.02  
 1、完善修改集成的逻辑 
 
@@ -20,10 +23,6 @@
 1、先添加自定义集成，后在HACS中搜索"和风天气"，安装此集成，重启Home Assistant  
 2、将 `qweather` 文件夹复制到你的 Home Assistant 配置目录下的 `custom_components` 文件夹中，重启 Home Assistant
 
-## 搜索天气更新
-~~~
-action: qweather.set_city
-data:
-  entity_id: weather.wo_de_jia  ## 天气实体
-  city: 海南                    ## 想要查询的城市，或者""置为空
-~~~
+## 搜索天气说明
+搜索天气的实体在城市为空时，是不再提供的状态，是正常的，别手动给删除了
+录入城市后会重新加载的
