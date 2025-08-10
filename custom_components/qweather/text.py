@@ -63,7 +63,6 @@ class QWeatherCityText(TextEntity):
             "name": self._name.replace("_city", ""),
             "manufacturer": MANUFACTURER,
             "model": "和风天气API",
-            "entry_type": DeviceEntryType.SERVICE,
             "sw_version": VERSION
         }
     
