@@ -272,7 +272,6 @@ class HeFengWeather(WeatherEntity):
             "name": self.name,
             "manufacturer": MANUFACTURER,
             "model": "和风天气API",
-            "entry_type": DeviceEntryType.SERVICE,
             "sw_version": VERSION
         }
     @property
