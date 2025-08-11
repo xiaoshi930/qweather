@@ -37,6 +37,7 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         """Initialize."""
         self._errors = {}
+        self.user_input = {}
     
     def get_data(self, url, config):
         headers = {"X-QW-Api-Key": config[CONF_API_KEY]}
@@ -49,38 +50,10 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return None
 
     async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
+        """第1步：输入基本信息（名称、API密钥、API主机）"""
         self._errors = {}
         
         if user_input is not None:
-            # 检查城市搜索模式是否已存在
-            if user_input["location_mode"] == "城市搜索":
-                # 检查是否已经存在使用城市搜索模式的集成
-                for entry in self.hass.config_entries.async_entries(DOMAIN):
-                    if entry.data.get("location_mode") == "城市搜索":
-                        self._errors["base"] = "城市搜索模式只能添加1次集成"
-                        return await self._show_config_form(user_input)
-            
-            if user_input["location_mode"] == "选择设备":
-                if CONF_ZONE_OR_DEVICE in user_input:
-                    # 验证实体是否存在
-                    entity_id = user_input[CONF_ZONE_OR_DEVICE].split("(")[-1].split(")")[0].strip()
-                    entity_state = self.hass.states.get(entity_id)  # 获取真正的实体对象
-                    
-                    # 验证实体是否有经纬度属性
-                    if "longitude" not in entity_state.attributes or "latitude" not in entity_state.attributes:
-                        self._errors["base"] = f"{entity_id} 实体没有经纬度属性"
-                        return await self._show_config_form(user_input)
-                    
-                    # 保存配置
-                    return self.async_create_entry(
-                        title=user_input[CONF_NAME],
-                        data=user_input,
-                    )
-                else:
-                    self._errors["base"] = "请选择设备或区域"
-                    return await self._show_config_form(user_input)
-            
             # 验证 API 密钥
             url = f"https://{user_input[CONF_HOST]}/v7/weather/now?location=116.41,39.92&lang=zh&unit=m"
             redata = await self.hass.async_add_executor_job(
@@ -90,30 +63,115 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not redata or redata.get('code') != "200":
                 self._errors["base"] = "communication"
                 _LOGGER.debug("API响应: %s", redata)
+                return await self._show_user_form(user_input)
             else:
-                # 如果是城市搜索模式，再次检查是否已存在
-                if user_input["location_mode"] == "城市搜索":
-                    for entry in self.hass.config_entries.async_entries(DOMAIN):
-                        if entry.data.get("location_mode") == "城市搜索":
-                            self._errors["base"] = "城市搜索模式只能添加1次集成"
-                            return await self._show_config_form(user_input)
-                
-                await self.async_set_unique_id(f"qweather_{user_input[CONF_NAME].replace(' ', '_')}")
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME], data=user_input
-                )
-            
-            return await self._show_config_form(user_input)
+                # 保存用户输入到实例变量，以便在后续步骤中使用
+                self.user_input = user_input
+                # 进入第2步：选择模式
+                return await self.async_step_mode()
         
-        return await self._show_config_form(user_input)
-
-
-    async def _show_config_form(self, user_input=None):
-        """Show the configuration form."""
+        return await self._show_user_form(user_input)
+    
+    async def _show_user_form(self, user_input=None):
+        """显示第1步表单：基本信息"""
         if user_input is None:
             user_input = {}
+        
+        data_schema = vol.Schema({
+            vol.Required(CONF_NAME, default=user_input.get(CONF_NAME, "我的家")): str,
+            vol.Required(CONF_API_KEY, default=user_input.get(CONF_API_KEY, "")): str,
+            vol.Required(CONF_HOST, default=user_input.get(CONF_HOST, "api.qweather.com")): str,
+        })
+        
+        return self.async_show_form(
+            step_id="user",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
+    
+    async def async_step_mode(self, user_input=None):
+        """第2步：选择模式（选择设备或城市搜索）"""
+        self._errors = {}
+        
+        if user_input is not None:
+            # 检查城市搜索模式是否已存在
+            if user_input["location_mode"] == "城市搜索":
+                # 检查是否已经存在使用城市搜索模式的集成
+                for entry in self.hass.config_entries.async_entries(DOMAIN):
+                    if entry.data.get("location_mode") == "城市搜索":
+                        self._errors["base"] = "城市搜索模式只能添加1次集成"
+                        return await self._show_mode_form(user_input)
             
+            # 保存模式选择
+            self.user_input.update(user_input)
+            
+            # 根据选择的模式进入不同的步骤
+            if user_input["location_mode"] == "选择设备":
+                return await self.async_step_device()
+            else:
+                return await self.async_step_city()
+        
+        return await self._show_mode_form(user_input)
+    
+    async def _show_mode_form(self, user_input=None):
+        """显示第2步表单：选择模式"""
+        if user_input is None:
+            user_input = {}
+        
+        # 检查是否已存在城市搜索模式的集成
+        city_search_exists = False
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("location_mode") == "城市搜索":
+                city_search_exists = True
+                break
+        
+        # 如果已存在城市搜索模式，则只提供选择设备选项
+        if city_search_exists:
+            data_schema = vol.Schema({
+                vol.Required("location_mode", default="选择设备"): vol.In(["选择设备"]),
+            })
+        else:
+            data_schema = vol.Schema({
+                vol.Required("location_mode", default="选择设备"): vol.In(["选择设备", "城市搜索"]),
+            })
+        
+        return self.async_show_form(
+            step_id="mode",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
+    
+    async def async_step_device(self, user_input=None):
+        """第3步A：选择设备"""
+        self._errors = {}
+        
+        if user_input is not None:
+            if CONF_ZONE_OR_DEVICE in user_input:
+                # 验证实体是否存在
+                entity_id = user_input[CONF_ZONE_OR_DEVICE].split("(")[-1].split(")")[0].strip()
+                entity_state = self.hass.states.get(entity_id)  # 获取真正的实体对象
+                
+                # 验证实体是否有经纬度属性
+                if "longitude" not in entity_state.attributes or "latitude" not in entity_state.attributes:
+                    self._errors["base"] = f"{entity_id} 实体没有经纬度属性"
+                    return await self._show_device_form(user_input)
+                
+                # 保存设备选择
+                self.user_input.update(user_input)
+                
+                # 进入第4步：更新周期设置
+                return await self.async_step_update_interval()
+            else:
+                self._errors["base"] = "请选择设备或区域"
+                return await self._show_device_form(user_input)
+        
+        return await self._show_device_form(user_input)
+    
+    async def _show_device_form(self, user_input=None):
+        """显示第3步A表单：选择设备"""
+        if user_input is None:
+            user_input = {}
+        
         # 获取所有 zone 和 device_tracker 实体
         zone_entities = [
             f"{state.attributes.get('friendly_name', state.entity_id)} ({state.entity_id})" for state in self.hass.states.async_all()
@@ -125,36 +183,76 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ] 
  
         # 合并实体列表
-        entity_list =  zone_entities + device_tracker_entities
+        entity_list = zone_entities + device_tracker_entities
         
-        # 设置默认名称，如果实体列表为空则使用默认名称
-        default_name = user_input.get(CONF_NAME, "和风天气")
-        if entity_list and len(entity_list) > 0:
-            default_name = user_input.get(CONF_NAME, entity_list[0].split("(")[0].strip())
-        
-        base_schema = {
-            vol.Required(CONF_NAME, default=default_name): str,
-            vol.Required(CONF_API_KEY, default=user_input.get(CONF_API_KEY, "")): str,
-            vol.Required(CONF_HOST, default=user_input.get(CONF_HOST, "api.qweather.com")): str,
-            vol.Required("location_mode", default=user_input.get("location_mode", "device")): vol.In(["选择设备", "城市搜索"]),
-        }
-
-        if user_input.get("location_mode", "device") == "选择设备":
-            base_schema.update({
-                vol.Optional(CONF_ZONE_OR_DEVICE, default=user_input.get(CONF_ZONE_OR_DEVICE, "")): vol.In(entity_list),
-            })
-        else:
-            base_schema.update({
-                vol.Optional("城市搜索", default=user_input.get("城市搜索", "北京")): str,
-            })
-
-        data_schema = vol.Schema(base_schema).extend({
-            vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
-            vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
+        data_schema = vol.Schema({
+            vol.Required(CONF_ZONE_OR_DEVICE, default=user_input.get(CONF_ZONE_OR_DEVICE, "")): vol.In(entity_list),
         })
-        # 每次显示表单时不带出之前的参数
+        
         return self.async_show_form(
-            step_id="user",
+            step_id="device",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
+    
+    async def async_step_city(self, user_input=None):
+        """第3步B：输入城市"""
+        self._errors = {}
+        
+        if user_input is not None:
+            # 保存城市输入
+            self.user_input.update(user_input)
+            
+            # 进入第4步：更新周期设置
+            return await self.async_step_update_interval()
+        
+        return await self._show_city_form(user_input)
+    
+    async def _show_city_form(self, user_input=None):
+        """显示第3步B表单：输入城市"""
+        if user_input is None:
+            user_input = {}
+        
+        data_schema = vol.Schema({
+            vol.Required("城市搜索", default=user_input.get("城市搜索", "北京")): str,
+        })
+        
+        return self.async_show_form(
+            step_id="city",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
+    
+    async def async_step_update_interval(self, user_input=None):
+        """第4步：设置更新周期"""
+        self._errors = {}
+        
+        if user_input is not None:
+            # 保存更新周期设置
+            self.user_input.update(user_input)
+            
+            # 创建配置条目
+            await self.async_set_unique_id(f"qweather_{self.user_input[CONF_NAME].replace(' ', '_')}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=self.user_input[CONF_NAME],
+                data=self.user_input
+            )
+        
+        return await self._show_update_interval_form(user_input)
+    
+    async def _show_update_interval_form(self, user_input=None):
+        """显示第4步表单：设置更新周期"""
+        if user_input is None:
+            user_input = {}
+        
+        data_schema = vol.Schema({
+            vol.Required(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
+            vol.Required(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
+        })
+        
+        return self.async_show_form(
+            step_id="update_interval",
             data_schema=data_schema,
             errors=self._errors,
         )
