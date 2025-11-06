@@ -400,6 +400,7 @@ class HeFengWeather(WeatherEntity):
                 "qweather_icon": self._icon,
                 ATTR_UPDATE_TIME: self._updatetime,
                 ATTR_CONDITION_CN: self._condition_cn,
+                "aqis": self._aqi.get("aqi") if isinstance(self._aqi, dict) else None,
                 ATTR_AQI: self._aqi,
                 ATTR_DAILY_FORECAST: daily_forecast,
                 ATTR_HOURLY_FORECAST: hourly_forecast,
