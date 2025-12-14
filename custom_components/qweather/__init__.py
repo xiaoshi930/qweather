@@ -11,6 +11,18 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 from .const import DOMAIN, PLATFORMS
 from homeassistant.const import CONF_HOST, CONF_API_KEY, CONF_NAME, ATTR_ENTITY_ID
+from homeassistant.components.frontend import add_extra_js_url
+try:
+    from homeassistant.components.http.static import StaticPathConfig
+except ImportError:
+    try:
+        from homeassistant.components.http import StaticPathConfig
+    except ImportError:
+        class StaticPathConfig:
+            def __init__(self, url_path, path, cache_headers):
+                self.url_path = url_path
+                self.path = path
+                self.cache_headers = cache_headers
 _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.deprecated(DOMAIN)
 
@@ -22,7 +34,6 @@ async def async_setup_weather_card(hass: HomeAssistant) -> bool:
     await hass.http.async_register_static_paths([
         StaticPathConfig(state_weather_card_path, hass.config.path('custom_components/qweather/www'), False)
     ])
-    _LOGGER.debug(f"register_static_path: {state_weather_card_path + ':custom_components/qweather/www'}")
     add_extra_js_url(hass, state_weather_card_path + f"/weather-card.js")
     return True
 
