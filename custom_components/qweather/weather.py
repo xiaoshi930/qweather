@@ -360,7 +360,8 @@ class HeFengWeather(WeatherEntity):
                 # 添加其他属性
                 "text": forecast.text,
                 "icon": forecast.icon,
-                "humidity": forecast.humidity
+                "humidity": forecast.humidity,
+                "windscaleday": forecast.windscaleday
             }
             forecast_data.append(forecast_dict)
         
@@ -493,6 +494,7 @@ class HourlyForecast:
     probable_precipitation: int = None
     native_pressure: int = None
     cloud: int = None
+    windscaleday: str = None
 
 @dataclass
 class WarningData:
@@ -814,7 +816,7 @@ class WeatherData(object):
             self._native_wind_speed = float(self._current.get("windSpeed", 0))
             self._wind_bearing = float(self._current.get("wind360", 0))
             self._winddir = self._current.get("windDir", "")
-            self._windscale = self._current.get("windScale", "")
+            self._windscale = float(self._current.get("windScale", 0))
             self._textnight = self._current.get("textNight", "")
             self._winddirday = self._current.get("windDirday", "")
             self._winddirnight = self._current.get("windDirNight", "")
@@ -911,6 +913,7 @@ class WeatherData(object):
                     probable_precipitation=int(hourly.get("pop", 0)),
                     native_pressure=float(hourly.get("pressure", 0)),
                     cloud=hourly.get("cloud"),
+                    windscaleday=float(hourly.get("windScale", 0))
                 ))
         
         # 处理白天/夜晚预报
