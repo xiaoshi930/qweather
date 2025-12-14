@@ -17,9 +17,19 @@ CONFIG_SCHEMA = cv.deprecated(DOMAIN)
 # 定义信号常量
 QWEATHER_UPDATE_SIGNAL = f"{DOMAIN}_update"
 
+async def async_setup_weather_card(hass: HomeAssistant) -> bool:
+    state_weather_card_path = '/qweather'
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(state_weather_card_path, hass.config.path('custom_components/qweather/www'), False)
+    ])
+    _LOGGER.debug(f"register_static_path: {state_weather_card_path + ':custom_components/qweather/www'}")
+    add_extra_js_url(hass, state_weather_card_path + f"/weather-card.js")
+    return True
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """设置从配置项加载的QWeather组件。"""
     hass.data.setdefault(DOMAIN, {})
+    await async_setup_weather_card(hass)
     
     # 转发配置到平台
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
