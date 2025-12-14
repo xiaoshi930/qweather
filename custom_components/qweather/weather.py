@@ -816,7 +816,7 @@ class WeatherData(object):
             self._native_wind_speed = float(self._current.get("windSpeed", 0))
             self._wind_bearing = float(self._current.get("wind360", 0))
             self._winddir = self._current.get("windDir", "")
-            self._windscale = float(self._current.get("windScale", 0))
+            self._windscale = self._current.get("windScale", 0)
             self._textnight = self._current.get("textNight", "")
             self._winddirday = self._current.get("windDirday", "")
             self._winddirnight = self._current.get("windDirNight", "")
@@ -913,7 +913,7 @@ class WeatherData(object):
                     probable_precipitation=int(hourly.get("pop", 0)),
                     native_pressure=float(hourly.get("pressure", 0)),
                     cloud=hourly.get("cloud"),
-                    windscaleday=float(hourly.get("windScale", 0))
+                    windscaleday=hourly.get("windScale", 0)
                 ))
         
         # 处理白天/夜晚预报
