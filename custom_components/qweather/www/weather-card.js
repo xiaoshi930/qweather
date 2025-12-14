@@ -1,13 +1,134 @@
 console.info("%c 天气卡片 \n%c   v 0.1   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
+class XiaoshiWeatherPhoneEditor extends LitElement {
+  static get properties() {
+    return {
+      hass: { type: Object },
+      config: { type: Object }
+    };
+  }
+
+  static get styles() {
+    return css`
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      label {
+        font-weight: bold;
+      }
+      select, input {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+    `;
+  }
+
+  render() {
+    if (!this.hass) return html``;
+
+    return html`
+      <div class="form">
+        <div class="form-group">
+          <label>天气实体</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.entity || ''}
+            name="entity"
+          >
+            <option value="">选择天气实体</option>
+            ${Object.keys(this.hass.states)
+              .filter(entityId => entityId.startsWith('weather.'))
+              .map(entityId => html`
+                <option value="${entityId}" 
+                  .selected=${entityId === this.config.entity}>
+                  ${this.hass.states[entityId].attributes.friendly_name || entityId} ${this.hass.states[entityId].attributes.friendly_name ? '(' + entityId + ')' : ''}
+                </option>
+              `)}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>预报列数</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.columns !== undefined ? this.config.columns : 9}
+            name="columns"
+          >
+            <option value="7">7列</option>
+            <option value="8">8列</option>
+            <option value="9">9列</option>
+            <option value="10">10列</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>图标模式</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.mode !== undefined ? this.config.mode : '家'}
+            name="mode"
+          >
+            <option value="家">家</option>
+            <option value="手机定位">手机定位</option>
+            <option value="搜索城市">搜索城市</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>主题</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            name="theme"
+          >
+            <option value="on">浅色主题（白底黑字）</option>
+            <option value="off">深色主题（深灰底白字）</option>
+          </select>
+        </div>
+        
+         
+      </div>
+    `;
+  }
+
+  _entityChanged(e) {
+    const { name, value } = e.target;
+    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns') return;
+    
+    this.config = {
+      ...this.config,
+      [name]: name === 'columns' ? parseInt(value) : value
+    };
+    
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this.config },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  setConfig(config) {
+    this.config = config;
+  }
+}
+customElements.define('xiaoshi-weather-phone-editor', XiaoshiWeatherPhoneEditor);
+
 class XiaoshiWeatherPhoneCard extends LitElement {
   // 温度计算常量
   static get TEMPERATURE_CONSTANTS() {
     return {
       BUTTON_HEIGHT_VW: 3.4,        // 温度矩形高度（vw）
       CONTAINER_HEIGHT_VW: 25,       // 温度容器总高度（vw）
-      FORECAST_COLUMNS: 10,          // 预报列数
+      FORECAST_COLUMNS: 9,          // 预报列数
       GRID_GAP_PX: 2                 // 网格间距（px）
     };
   }
@@ -17,16 +138,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return '/qweather/icon';
   }
 
+  static getConfigElement() {
+    return document.createElement("xiaoshi-weather-phone-editor");
+  }
+
   static get properties() {
     return {
       hass: { type: Object },
       config: { type: Object },
       entity: { type: Object },
-      switchEntity: { type: Object },
-      warningEntity: { type: Object },
-      weatherTheme: { type: String },
       mode: { type: String },
-      forecastMode: { type: String } // 'daily' 或 'hourly'
+      forecastMode: { type: String }, // 'daily' 或 'hourly'
+      showWarningDetails: { type: Boolean } // 是否显示预警详情
     };
   }
 
@@ -34,30 +157,19 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return css`
       :host {
         display: block;
-        --card-primary-color: #03A9F4;
-        --card-secondary-color: #0288D1;
-        --text-primary-color: #FFFFFF;
-        --text-secondary-color: #B3E5FC;
-        --background-color: rgb(50, 50, 50);
-        --border-radius: 3vw;
       }
 
       /*主卡片样式*/
       .weather-card {
         position: relative;
-        background: var(--background-color);
-        border-radius: var(--border-radius);
+        border-radius: 3vw;
         padding: 8px;
-        height: 58vw;
-        color: var(--text-primary-color);
         font-family: sans-serif;
         overflow: hidden;
       }
+
       /*主卡片样式*/
       .weather-card.dark-theme {
-        --background-color: #323232;
-        --text-primary-color: #FFFFFF;
-        --text-secondary-color: #DCDCDC;
       }
 
       .main-content {
@@ -106,9 +218,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /*天气头部 天气信息*/
       .weather-info {
         height: 3vw;
-        font-size: 2.0vw;
-        color: var(--text-secondary-color);
-        margin-bottom: 0px;
+        font-size: 3vw;
+        margin-top: -1vw;
       }
 
       /*天气头部 城市信息*/
@@ -127,13 +238,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         align-items: flex-end;
       }
 
-
-
       .toggle-btn {
         padding: 0.6vw 2vw;
         border: none;
         border-radius: 1.2vw;
-        font-size: 1.2vw;
+        font-size: 1.8vw;
         cursor: pointer;
         transition: all 0.3s ease;
         color: white;
@@ -162,52 +271,52 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1.8vw;
+        font-size: 2vw;
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         z-index: 3;
       }
 
-      /*10日天气部分*/
+      /*9日天气部分*/
       .forecast-container {
         display: grid;
-        grid-template-columns: repeat(10, 1fr);
-        gap: 4px;
+        gap: 2px;
         margin-top: 2vw;
         position: relative;
       }
 
-      /*10日天气部分*/
+      /*9日天气部分*/
       .forecast-day {
         grid-row: 1;
         text-align: center;
         position: relative;
         z-index: 2;
-        background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
         padding: 1vw;
         position: relative;
       }
 
-      /*10日天气部分 星期*/
+      /*9日天气部分 星期*/
       .forecast-weekday {
-        font-size: 1.8vw;
+        font-size: 2.2vw;
         height: 2.8vw;
+        margin-top: -1vw;
         margin-bottom: 0.2vw;
         font-weight: 500;
         white-space: nowrap;
       }
       
-      /*10日天气部分 日期*/
+      /*9日天气部分 日期*/
       .forecast-date {
-        font-size: 1.5vw;
-        color: var(--text-secondary-color);
-        margin-bottom: 2vw;
+        font-size: 1.6vw;
+        margin-bottom: 3vw;
+        margin-left: 0vw;
+        margin-right: 0vw;
         height: 2vw;
         white-space: nowrap;
       }
 
-      /*10日天气部分 温度区域*/
+      /*9日天气部分 温度区域*/
       .forecast-temp-container {
         position: relative;
         height: 25vw;
@@ -215,17 +324,17 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         margin-bottom: 0;
       }
 
-      /*10日天气部分 温度区域*/
+      /*9日天气部分 温度区域*/
       .forecast-temp-null {
         position: relative;
         height: 2vw;
       }
 
-      /*10日天气部分 雨量容器*/
+      /*9日天气部分 雨量容器*/
       .forecast-rainfall-container {
         text-align: center;
         position: relative;
-        z-index: 2;
+        z-index: 3;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -234,7 +343,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         margin-bottom: 0;
       }
 
-      /*10日天气部分 雨量标签*/
+      /*9日天气部分 雨量标签*/
       .forecast-rainfall {
         background: rgba(80, 177, 200, 0.8);
         color: white;
@@ -242,11 +351,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-weight: bold;
         height: 2.5vw;
         min-width: 80% ;
-        border-radius: 1.2vw; /* 大圆角 */
+        border-radius: 1.2vw;
         width: fit-content;
         box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        padding: 0 0.5vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-
+ 
       /*雨量填充矩形*/
       .rainfall-fill {
         position: absolute;
@@ -254,20 +367,20 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         right: 0;
         background: rgba(80, 177, 200, 0.8);
         border-radius: 0.5vw;
-        z-index: 1;
+        z-index: 0;
         margin: 0 -1vw;
         bottom: -3vw;
         transition: all 0.3s ease;
       }
 
-      /*10日天气部分 图标*/
+      /*9日天气部分 图标*/
       .forecast-icon-container {
         text-align: center;
         position: relative;
         z-index: 2;
       }
 
-      /*10日天气部分 图标*/
+      /*9日天气部分 图标*/
       .forecast-icon {
         width: 5vw;
         height: 5vw;
@@ -275,14 +388,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         margin-top: 0;
       }
 
-      /*10日天气部分 图标*/
+      /*9日天气部分 图标*/
       .forecast-icon img {
         width: 100%;
         height: 100%;
         object-fit: contain;
       }
 
-      /*10日天气部分 风速*/
+      /*9日天气部分 风速*/
       .forecast-wind-container {
         grid-row: 4;
         text-align: center;
@@ -292,10 +405,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         margin-top: -1vw;
       }
 
-      /*10日天气部分 风速*/
+      /*9日天气部分 风速*/
       .forecast-wind {
-        font-size: 1.6vw;
-        color: var(--text-secondary-color);
+        font-size: 2vw;
         margin-top: 0;
         display: flex;
         align-items: center;
@@ -304,18 +416,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         height: 3vw;
       }
 
-      /*10日天气部分 风速*/
+      /*9日天气部分 风速*/
       .wind-direction {
-        font-size: 1.6vw;
+        font-size: 1.8vw;
       }
 
-      /*10日天气部分 温度曲线 Canvas*/
+      /*9日天气部分 温度曲线 Canvas*/
       .temp-line-canvas {
         position: absolute;
         left: 0;
         width: 100%;
         pointer-events: none;
-        z-index: 1;
+        z-index: 2;
       }
 
       .temp-line-canvas-high {
@@ -341,7 +453,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1.8vw;
+        font-size: 2.2vw;
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         z-index: 3;
@@ -360,7 +472,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1.8vw;
+        font-size: 2.2vw;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         z-index: 2;
       }
@@ -370,18 +482,110 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 200px;
-        font-size: 3vw;
-        color: var(--text-secondary-color);
+        height: 0;
+        min-height: 0;
+        max-height: 0;
+        margin: 0;
+        padding: 0;
+      }
+
+      /*预警图标和文字样式*/
+      .warning-icon-text {
+        color: #FFA726;
+        height: 7vw;
+        font-size: 4vw;
+        font-weight: bold;
+        margin-left: 3vw;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+
+      .warning-icon-text:hover {
+        transform: scale(1.1);
+      }
+
+      /*预警详情卡片样式*/
+      .warning-details-card {
+        position: relative;
+        border-radius: 2vw;
+        margin-top: 1vw;
+        padding: 2vw;
+        color: white;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s ease;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /*预警标题样式*/
+      .warning-title-line {
+        font-size: 2.5vw;
+        font-weight: bold;
+        white-space: nowrap;
+        height: 4vw;
+        margin-bottom: 0.5vw;
+      }
+
+      /*预警文本滚动容器*/
+      .warning-text-container {
+        display: flex;
+        overflow: hidden;
+        white-space: nowrap;
+        width: 100%;
+        height: 3vw;
+        font-size: 2.5vw;
+        align-items: center;
+        margin-bottom: 1vw;
+      }
+
+      /*预警文本滚动内容*/
+      .warning-text-scroll {
+        display: inline-block;
+        padding-left: 100%;
+        animation: scroll linear infinite;
+      }
+
+      @keyframes scroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-100%); }
       }
     `;
   }
 
   constructor() {
     super();
-    this.weatherTheme = 'light';
-    this.mode = 'home';
+    this.mode = '家';
     this.forecastMode = 'daily'; // 默认显示每日天气
+    this.showWarningDetails = false;
+    this.warningTimer = null;
+  }
+  
+  _evaluateTheme() {
+    try {
+      if (!this._config || !this._config.theme) return 'on';
+      if (typeof this._config.theme === 'function') {
+          return this._config.theme();
+      }
+      if (typeof this._config.theme === 'string' && 
+              (this._config.theme.includes('return') || this._config.theme.includes('=>'))) {
+          return (new Function(`return ${this._config.theme}`))();
+      }
+      return this._config.theme;
+    } catch(e) {
+      console.error('计算主题时出错:', e);
+      return 'on';
+    }
   }
 
   connectedCallback() {
@@ -400,16 +604,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (!this.hass || !this.config) return;
 
     this.entity = this.hass.states[this.config.entity];
-    this.switchEntity = this.hass.states[this.config.switch] || { state: 'off' };
-    this.warningEntity = this.hass.states[this.config.warning] || { state: 'off', attributes: { warning: '' } };
-    this.weatherTheme = this.config.theme || 'light';
+    this._config = this.config; // 保存配置供 _evaluateTheme 使用
     this.mode = this.config.mode || 'home';
   }
 
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
-    const isDark = this.weatherTheme === 'dark';
-    const iconPath = WeatherCardLit.ICON_PATH;
+    const theme = this._evaluateTheme();
+    const isDark = theme === 'on';
+    const iconPath = XiaoshiWeatherPhoneCard.ICON_PATH;
     
     const iconMap = {
       '晴': isDark ? 
@@ -444,9 +647,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _getCityIcon() {
     const icons = {
-      'home': '🏠',
-      'search': '🔍',
-      'mobile': '📍'
+      '家': '🏠',
+      '搜索城市': '🔍',
+      '手机定位': '📍'
     };
     return icons[this.mode] || '🏠';
   }
@@ -457,17 +660,49 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _getForecastDays() {
+    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
     if (!this.entity?.attributes?.daily_forecast) return [];
-    return this.entity.attributes.daily_forecast.slice(0, 10);
+    return this.entity.attributes.daily_forecast.slice(0, columns);
   }
 
   _getHourlyForecast() {
+    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
     if (!this.entity?.attributes?.hourly_forecast) return [];
-    return this.entity.attributes.hourly_forecast.slice(0, 10);
+    return this.entity.attributes.hourly_forecast.slice(0, columns);
   }
 
   _toggleForecastMode(mode) {
     this.forecastMode = mode;
+    this.requestUpdate();
+  }
+
+  _toggleWarningDetails() {
+    if (this.showWarningDetails) {
+      // 如果当前显示，则隐藏并清除定时器
+      this._hideWarningDetails();
+    } else {
+      // 如果当前隐藏，则显示并设置20秒定时器
+      this.showWarningDetails = true;
+      this.requestUpdate();
+      
+      // 清除之前的定时器
+      if (this.warningTimer) {
+        clearTimeout(this.warningTimer);
+      }
+      
+      // 设置20秒后自动隐藏
+      this.warningTimer = setTimeout(() => {
+        this._hideWarningDetails();
+      }, 20000);
+    }
+  }
+
+  _hideWarningDetails() {
+    this.showWarningDetails = false;
+    if (this.warningTimer) {
+      clearTimeout(this.warningTimer);
+      this.warningTimer = null;
+    }
     this.requestUpdate();
   }
 
@@ -507,9 +742,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     const minTemp = Math.min(...temperatures);
     const maxTemp = Math.max(...temperatures);
-    const range = maxTemp - minTemp || 1; // 避免除以0
-
-    return { minTemp, maxTemp, range };
+    const range = maxTemp - minTemp;
+    
+    // 检查是否所有温度都相等
+    const allEqual = temperatures.every(temp => temp === temperatures[0]);
+    
+    return { minTemp, maxTemp, range, allEqual };
   }
 
   _calculateTemperatureBounds(day, extremes) {
@@ -518,7 +756,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const lowTemp = parseFloat(day.native_temp_low) || 0;
     
     // 使用常量
-    const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = WeatherCardLit.TEMPERATURE_CONSTANTS;
+    const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
     
     // 最终分配的区间高度
     const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
@@ -548,7 +786,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _generateTemperatureLine(forecastData, extremes, isHigh = true) {
     if (forecastData.length === 0) return { points: [], curveHeight: 0, curveTop: 0 };
     
-    const { BUTTON_HEIGHT_VW, FORECAST_COLUMNS } = WeatherCardLit.TEMPERATURE_CONSTANTS;
+    const { BUTTON_HEIGHT_VW, FORECAST_COLUMNS } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
     
     let boundsList;
     if (this.forecastMode === 'daily') {
@@ -556,15 +794,25 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       boundsList = forecastData.map(day => this._calculateTemperatureBounds(day, extremes));
     } else {
       // 小时天气只需要一个温度，简化计算
-      const { minTemp, maxTemp, range } = extremes;
-      const availableHeight = WeatherCardLit.TEMPERATURE_CONSTANTS.CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
-      const unitPosition = range === 0 ? 0 : availableHeight / range;
+      const { minTemp, maxTemp, range, allEqual } = extremes;
+      const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
+      const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
       
-      boundsList = forecastData.map(hour => {
-        const temp = parseFloat(hour.native_temperature) || 0;
-        const topPosition = (maxTemp - temp) * unitPosition;
-        return { highTop: topPosition, lowTop: topPosition };
-      });
+      // 如果所有温度相等，将位置设置在中间
+      if (allEqual) {
+        const middlePosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+        boundsList = forecastData.map(() => ({
+          highTop: middlePosition,
+          lowTop: middlePosition
+        }));
+      } else {
+        const unitPosition = range === 0 ? 0 : availableHeight / range;
+        boundsList = forecastData.map(hour => {
+          const temp = parseFloat(hour.native_temperature) || 0;
+          const topPosition = (maxTemp - temp) * unitPosition;
+          return { highTop: topPosition, lowTop: topPosition };
+        });
+      }
     }
     
     // 计算曲线范围
@@ -585,9 +833,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     } else {
       // 小时天气模式
       const tops = boundsList.map(bounds => bounds.highTop);
-      curveTop = Math.min(...tops);
-      curveBottom = Math.max(...tops) + BUTTON_HEIGHT_VW;
-      curveHeight = curveBottom - curveTop;
+      const { allEqual } = extremes;
+      
+      if (allEqual) {
+        // 如果所有温度相等，将曲线设置在中间位置，高度为按钮高度
+        curveTop = 0; // 所有点都在同一个位置
+        curveBottom = curveTop + BUTTON_HEIGHT_VW;
+        curveHeight = BUTTON_HEIGHT_VW;
+      } else {
+        curveTop = Math.min(...tops);
+        curveBottom = Math.max(...tops) + BUTTON_HEIGHT_VW;
+        curveHeight = curveBottom - curveTop;
+      }
     }
     
     const points = forecastData.map((data, index) => {
@@ -658,7 +915,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       // 开始绘制路径
       ctx.beginPath();
       
-      const { CONTAINER_HEIGHT_VW } = WeatherCardLit.TEMPERATURE_CONSTANTS;
+      const { CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
       
       // 转换所有点为Canvas坐标
       const canvasPoints = points.map((point, index) => {
@@ -682,8 +939,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       ctx.beginPath();
       ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
       
-      // 使用Cardinal样条算法生成控制点，确保曲线通过所有原始点
-      const tension = 0.3; // 张力系数，控制曲线的平滑程度
+      // 使用更保守的样条算法，减少曲线过度弯曲
+      const tension = 0.15; // 减小张力系数，避免过度弯曲
       
       for (let i = 0; i < canvasPoints.length - 1; i++) {
         const p0 = canvasPoints[Math.max(0, i - 1)];
@@ -691,11 +948,21 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         const p2 = canvasPoints[i + 1];
         const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
         
-        // 计算控制点
-        const cp1x = p1.x + (p2.x - p0.x) * tension;
-        const cp1y = p1.y + (p2.y - p0.y) * tension;
-        const cp2x = p2.x - (p3.x - p1.x) * tension;
-        const cp2y = p2.y - (p3.y - p1.y) * tension;
+        // 计算控制点，限制控制点距离，避免过度弯曲
+        const dx1 = (p2.x - p0.x) * tension;
+        const dy1 = (p2.y - p0.y) * tension;
+        const dx2 = (p3.x - p1.x) * tension;
+        const dy2 = (p3.y - p1.y) * tension;
+        
+        // 限制控制点的垂直距离，防止曲线超出边界
+        const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+        const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+        const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+        
+        const cp1x = p1.x + dx1;
+        const cp1y = p1.y + limitedDy1;
+        const cp2x = p2.x - dx2;
+        const cp2y = p2.y - limitedDy2;
         
         // 如果是第一段，使用二次贝塞尔
         if (i === 0) {
@@ -710,9 +977,30 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     });
   }
 
+  _getWarningColor(warning) {
+    if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
+    
+    let level = "";
+    const priority = ["红色", "橙色", "黄色", "蓝色"];
+    
+    for (let i = 0; i < warning.length; i++) {
+      const currentLevel = warning[i].level;
+      if (priority.indexOf(currentLevel) < priority.indexOf(level) || level == "") {
+        level = currentLevel;
+      }
+    }
+    
+    if (level == "红色") return "rgb(255,50,50)";
+    if (level == "橙色") return "rgb(255,100,0)";
+    if (level == "黄色") return "rgb(255,200,0)";
+    if (level == "蓝色") return "rgb(50,150,200)";
+    
+    return "#FFA726"; // 默认颜色
+  }
+
   render() {
     if (!this.entity || this.entity.state === 'unavailable') {
-      return html`<div class="unavailable">天气信息不可用</div>`;
+      return html`<div class="unavailable"></div>`;
     }
 
     const temperature = this._formatTemperature(this.entity.attributes?.temperature);
@@ -720,12 +1008,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
     const city = this.entity.attributes?.city || '未知城市';
-    const warning = this.warningEntity.attributes?.warning || '';
-    const isDarkTheme = this.weatherTheme === 'dark';
-    const showWarning = this.warningEntity.state === 'on' && warning;
+    const warning = this.entity.attributes?.warning || [];
+    const theme = this._evaluateTheme();
+    const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
+    const warningColor = this._getWarningColor(warning);
+
+    // 获取颜色
+    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const bgColor = theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)';
+    const secondaryColor = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
 
     return html`
-      <div class="weather-card ${isDarkTheme ? 'dark-theme' : ''}">
+      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''}" style="background-color: ${bgColor}; color: ${fgColor};">
         <div class="main-content">
           <!-- 天气头部信息 -->
           <div class="weather-header">
@@ -735,10 +1029,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
               </div>
               <div class="weather-details">
                 <div class="weather-temperature">
-                  ${temperature}<font size="1vw"><b> ℃&emsp;&ensp;</b></font>
+                  ${temperature}<font size="1vw"><b> ℃&ensp;</b></font>
                   ${humidity}<font size="1vw"><b> % </b></font>
+                  ${hasWarning ? 
+                    html`<span class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningDetails()}">⚠ ${warning.length}</span>` : ''}
                 </div>
-                <div class="weather-info">${condition}   ${windSpeed} km/h</div>
+                <div class="weather-info" style="color: ${secondaryColor};">${condition}   ${windSpeed} km/h</div>
               </div>
             </div>
             <!-- 城市信息 - 放在头部右侧 -->
@@ -756,14 +1052,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           <!-- 预报内容 -->
           ${this._renderDailyForecast()}
 
-          <!-- 天气预警 -->
-          ${showWarning ? html`
-            <div class="warning-section">
-              <div class="warning-title">⚠️ 天气预警</div>
-              <div class="warning-content">${warning}</div>
-            </div>
-          ` : ''}
         </div>
+        
+        <!-- 预警详情 - 在最下方显示 -->
+        ${this.showWarningDetails && hasWarning ? this._renderWarningDetails() : ''}
       </div>
     `;
   }
@@ -775,7 +1067,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     
     const forecastDays = this._getForecastDays();
     const extremes = this._getTemperatureExtremes();
-    
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+
     // 生成温度曲线坐标
     const highTempData = this._generateTemperatureLine(forecastDays, extremes, true);
     const lowTempData = this._generateTemperatureLine(forecastDays, extremes, false);
@@ -793,8 +1088,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       }, 50);
     });
     
+    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
     return html`
-      <div class="forecast-container">
+      <div class="forecast-container" style="grid-template-columns: repeat(${columns}, 1fr);">
         <!-- 最高温度连接线 Canvas -->
         <canvas class="temp-line-canvas temp-line-canvas-high" id="high-temp-canvas-${this._getInstanceId()}"></canvas>
         
@@ -819,12 +1115,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25); // 最大高度21.6vw（到日期下面）
 
           return html`
-            <div class="forecast-day">
+            <div class="forecast-day" style="background: ${backgroundColor};">
               <!-- 星期（周X） -->
               <div class="forecast-weekday">${weekday}</div>
               
               <!-- 日期（mm月dd日） -->
-              <div class="forecast-date">${dateStr}</div>
+              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
               
               <!-- 高温（橙色）和 低温（蓝色） -->
               <div class="forecast-temp-container">
@@ -871,6 +1167,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _renderHourlyForecast() {
     const hourlyForecast = this._getHourlyForecast();
     const extremes = this._getTemperatureExtremes();
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（小时天气只有一个温度）
     const tempData = this._generateTemperatureLine(hourlyForecast, extremes, true);
@@ -886,8 +1185,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       }, 50);
     });
     
+    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
     return html`
-      <div class="forecast-container">
+      <div class="forecast-container" style="grid-template-columns: repeat(${columns}, 1fr);">
         <!-- 小时温度连接线 Canvas -->
         <canvas class="temp-line-canvas temp-line-canvas-high" id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
         
@@ -900,24 +1200,32 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const rainfall = parseFloat(hour.native_precipitation) || 0;
           
           // 计算温度位置（简化版）
-          const { minTemp, maxTemp, range } = extremes;
-          const availableHeight = WeatherCardLit.TEMPERATURE_CONSTANTS.CONTAINER_HEIGHT_VW - WeatherCardLit.TEMPERATURE_CONSTANTS.BUTTON_HEIGHT_VW;
-          const unitPosition = range === 0 ? 0 : availableHeight / range;
-          const tempValue = parseFloat(hour.native_temperature) || 0;
-          const topPosition = (maxTemp - tempValue) * unitPosition;
-          const finalTopPosition = Math.max(0, Math.min(topPosition, WeatherCardLit.TEMPERATURE_CONSTANTS.CONTAINER_HEIGHT_VW - WeatherCardLit.TEMPERATURE_CONSTANTS.BUTTON_HEIGHT_VW));
+          const { minTemp, maxTemp, range, allEqual } = extremes;
+          const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
+          const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
+          
+          let finalTopPosition;
+          if (allEqual) {
+            // 如果所有温度相等，将位置设置在中间
+            finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+          } else {
+            const unitPosition = range === 0 ? 0 : availableHeight / range;
+            const tempValue = parseFloat(hour.native_temperature) || 0;
+            const topPosition = (maxTemp - tempValue) * unitPosition;
+            finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
+          }
           
           // 计算雨量矩形高度和位置
-          const RAINFALL_MAX = 20; // 最大雨量20mm
+          const RAINFALL_MAX = 2; // 最大雨量20mm
           const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25);
 
           return html`
-            <div class="forecast-day">
+            <div class="forecast-day" style="background: ${backgroundColor};">
               <!-- 时间（hh:mm） -->
               <div class="forecast-weekday">${timeStr}</div>
               
               <!-- 日期（mm月dd日） -->
-              <div class="forecast-date">${dateStr}</div>
+              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
               
               <!-- 温度（紫色） -->
               <div class="forecast-temp-container">
@@ -987,6 +1295,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _renderWindInfo(forecastDays) {
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
     return html`
       ${forecastDays.map(day => {
         const windSpeedRaw = day.windscaleday || 0;
@@ -1004,8 +1314,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         
         return html`
           <div class="forecast-wind-container">
-            <div class="forecast-wind">
-              <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
+            <div class="forecast-wind" style="color: ${secondaryColor};">
+              <span class="wind-direction" >${this._getWindDirectionIcon(windDirection)}</span>
               <span>${windSpeed}级</span>
             </div>
           </div>
@@ -1015,6 +1325,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _renderHourlyWindInfo(hourlyForecast) {
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
     return html`
       ${hourlyForecast.map(hour => {
         const windSpeedRaw = hour.windscaleday || 0;
@@ -1032,7 +1344,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         
         return html`
           <div class="forecast-wind-container">
-            <div class="forecast-wind">
+            <div class="forecast-wind" style="color: ${secondaryColor};">
               <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
               <span>${windSpeed}级</span>
             </div>
@@ -1071,6 +1383,48 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     });
 
     return direction ? direction.icon : '⬇️';
+  }
+
+  _renderWarningDetails() {
+    if (!this.showWarningDetails || !this.entity?.attributes?.warning) {
+      return '';
+    }
+
+    const warning = this.entity.attributes.warning;
+    const cardHeight = `${warning.length * 8}vw`;
+    const warningColor = this._getWarningColor(warning);
+    const theme = this._evaluateTheme();
+    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    return html`
+      <div class="warning-details-card" style="height: ${cardHeight}; background-color: ${backgroundColor};">
+        ${warning.map((warningItem, index) => {
+          const typeName = warningItem.typeName ?? "";
+          const level = warningItem.level ?? "";
+          const sender = warningItem.sender ?? "";
+          const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 10) : "";
+          const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 10) : "";
+          const text = warningItem.text ?? "";
+          const scrollDuration = Math.max(5, text.length * 0.3);
+
+          return html`
+            <div style="margin-bottom: 1vw;">
+              <!-- 第一行：预警标题 -->
+              <div class="warning-title-line" style="color: ${warningColor};">
+                ${sender}: 【${typeName}】${level}预警&emsp;( ${startTime}至${endTime} )
+              </div>
+              
+              <!-- 第二行：预警文本滚动 -->
+              <div class="warning-text-container" style="color: ${textcolor}; ">
+                <div class="warning-text-scroll" style="animation-duration: ${scrollDuration}s;">
+                  <span>${text}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        })}
+      </div>
+    `;
   }
 
 
