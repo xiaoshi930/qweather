@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 2.0   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 2.1   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -28,6 +28,31 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
         padding: 8px;
         border: 1px solid #ddd;
         border-radius: 4px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      input[type="number"] {
+        width: 100px;
+      }
+      .conditional-field {
+        display: none;
+      }
+      .conditional-field.visible {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .entity-search-container {
+        position: relative;
+        width: 100%;
+      }
+      .entity-search-container input {
+        width: 100%;
+        min-width: 200px;
+      }
+      datalist {
+        max-height: 200px;
+        overflow-y: auto;
       }
     `;
   }
@@ -57,6 +82,30 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
         </div>
         
         <div class="form-group">
+          <label>视觉样式</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.visual_style !== undefined ? this.config.visual_style : 'button'}
+            name="visual_style"
+          >
+            <option value="button">按钮模式</option>
+            <option value="dot">圆点模式</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>主题</label>
+          <select 
+            @change=${this._entityChanged}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            name="theme"
+          >
+            <option value="on">浅色主题（白底黑字）</option>
+            <option value="off">深色主题（深灰底白字）</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>预报列数</label>
           <select 
             @change=${this._entityChanged}
@@ -83,18 +132,77 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
           </select>
         </div>
         
+
+
+
+        
         <div class="form-group">
-          <label>主题</label>
+          <label>是否实体替换实时温湿度</label>
           <select 
             @change=${this._entityChanged}
-            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
-            name="theme"
+            .value=${this.config.use_custom_entities !== undefined ? this.config.use_custom_entities : false}
+            name="use_custom_entities"
           >
-            <option value="on">浅色主题（白底黑字）</option>
-            <option value="off">深色主题（深灰底白字）</option>
+            <option value=false>否（使用天气实体的温湿度）</option>
+            <option value=true>是（使用自定义实体）</option>
           </select>
         </div>
         
+        <div class="form-group conditional-field ${this.config.use_custom_entities ? 'visible' : ''}" id="temperature-entity-group">
+          <label>温度实体</label>
+          <div class="entity-search-container">
+            <input 
+              type="text" 
+              .value=${this.config.temperature_entity || ''}
+              @input=${this._onTemperatureEntityInput}
+              @change=${this._entityChanged}
+              name="temperature_entity"
+              placeholder="搜索温度实体（如 sensor.temperature）"
+              list="temperature-entities"
+            />
+            <datalist id="temperature-entities">
+              ${Object.keys(this.hass.states)
+                .filter(entityId => 
+                  this.hass.states[entityId].attributes?.unit_of_measurement === '°C' ||
+                  this.hass.states[entityId].attributes?.device_class === 'temperature' ||
+                  entityId.toLowerCase().includes('temp')
+                )
+                .map(entityId => html`
+                  <option value="${entityId}">
+                    ${this.hass.states[entityId].attributes.friendly_name || entityId}
+                  </option>
+                `)}
+            </datalist>
+          </div>
+        </div>
+        
+        <div class="form-group conditional-field ${this.config.use_custom_entities ? 'visible' : ''}" id="humidity-entity-group">
+          <label>湿度实体</label>
+          <div class="entity-search-container">
+            <input 
+              type="text" 
+              .value=${this.config.humidity_entity || ''}
+              @input=${this._onHumidityEntityInput}
+              @change=${this._entityChanged}
+              name="humidity_entity"
+              placeholder="搜索湿度实体（如 sensor.humidity）"
+              list="humidity-entities"
+            />
+            <datalist id="humidity-entities">
+              ${Object.keys(this.hass.states)
+                .filter(entityId => 
+                  this.hass.states[entityId].attributes?.unit_of_measurement === '%' ||
+                  this.hass.states[entityId].attributes?.device_class === 'humidity' ||
+                  entityId.toLowerCase().includes('humid')
+                )
+                .map(entityId => html`
+                  <option value="${entityId}">
+                    ${this.hass.states[entityId].attributes.friendly_name || entityId}
+                  </option>
+                `)}
+            </datalist>
+          </div>
+        </div>
          
       </div>
     `;
@@ -102,22 +210,83 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
 
   _entityChanged(e) {
     const { name, value } = e.target;
-    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns') return;
+    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'visual_style') return;
+
+    let processedValue = value;
+    if (name === 'columns' ) {
+      processedValue = parseInt(value);
+    } else if (name === 'use_custom_entities') {
+      processedValue = value === 'true';
+    }
     
     this.config = {
       ...this.config,
-      [name]: name === 'columns' ? parseInt(value) : value
+      [name]: processedValue
     };
-    
+
+    // 处理条件字段的显示/隐藏
+    if (name === 'use_custom_entities') {
+      this._updateConditionalFields();
+    }
+
     this.dispatchEvent(new CustomEvent('config-changed', {
       detail: { config: this.config },
       bubbles: true,
       composed: true
     }));
+  } 
+
+  _updateConditionalFields() {
+    // 更新条件字段的显示状态
+    const useCustomEntities = this.config.use_custom_entities;
+    
+    // 获取条件字段元素
+    const tempGroup = this.shadowRoot?.getElementById('temperature-entity-group');
+    const humidityGroup = this.shadowRoot?.getElementById('humidity-entity-group');
+    
+    if (tempGroup) {
+      if (useCustomEntities) {
+        tempGroup.classList.add('visible');
+      } else {
+        tempGroup.classList.remove('visible');
+        // 如果禁用，清空配置
+        delete this.config.temperature_entity;
+      }
+    }
+    
+    if (humidityGroup) {
+      if (useCustomEntities) {
+        humidityGroup.classList.add('visible');
+      } else {
+        humidityGroup.classList.remove('visible');
+        // 如果禁用，清空配置
+        delete this.config.humidity_entity;
+      }
+    }
+  }
+
+  _onTemperatureEntityInput(e) {
+    // 实时更新配置值，但不触发配置更改事件
+    this.config = {
+      ...this.config,
+      temperature_entity: e.target.value
+    };
+  }
+
+  _onHumidityEntityInput(e) {
+    // 实时更新配置值，但不触发配置更改事件
+    this.config = {
+      ...this.config,
+      humidity_entity: e.target.value
+    };
   }
 
   setConfig(config) {
     this.config = config;
+    // 在配置设置后更新条件字段
+    setTimeout(() => {
+      this._updateConditionalFields();
+    }, 0);
   }
 }
 customElements.define('xiaoshi-weather-phone-editor', XiaoshiWeatherPhoneEditor);
@@ -129,7 +298,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       BUTTON_HEIGHT_VW: 3.4,        // 温度矩形高度（vw）
       CONTAINER_HEIGHT_VW: 25,       // 温度容器总高度（vw）
       FORECAST_COLUMNS: 9,          // 预报列数
-      GRID_GAP_PX: 2                 // 网格间距（px）
     };
   }
 
@@ -163,7 +331,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       .weather-card {
         position: relative;
         border-radius: 3vw;
-        padding: 8px;
+        padding: 1.6vw;
         font-family: sans-serif;
         overflow: hidden;
       }
@@ -280,9 +448,43 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /*9日天气部分*/
       .forecast-container {
         display: grid;
-        gap: 2px;
+        gap: 0.4vw;
         margin-top: 2vw;
         position: relative;
+      }
+
+      /*小时天气滑动容器*/
+      .hourly-forecast-scroll-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        margin-top: 2vw;
+        position: relative;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none;  /* IE and Edge */
+      }
+
+      .hourly-forecast-scroll-container::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+      }
+
+      /*启用触摸滑动和平滑滚动*/
+      .hourly-forecast-scroll-container {
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x;
+        cursor: grab;
+      }
+
+      .hourly-forecast-scroll-container:active {
+        cursor: grabbing;
+      }
+
+      /*小时天气内容容器*/
+      .hourly-forecast-container {
+        display: grid;
+        gap: 0.4vw;
+        position: relative;
+        min-width: max-content;
       }
 
       /*9日天气部分*/
@@ -477,6 +679,60 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         z-index: 2;
       }
 
+      /* 圆点模式样式 */
+      .dot-mode .temp-curve-high,
+      .dot-mode .temp-curve-low,
+      .dot-mode .temp-curve-hourly {
+        width: 1vw;
+        height: 1vw;
+        border-radius: 50%;
+        left: calc(50% - 0.5vw);
+        margin-top: -0.5vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2vw;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      }
+
+      .dot-mode .temp-curve-high {
+        background: rgba(255, 87, 34);
+      }
+
+      .dot-mode .temp-curve-low {
+        background: rgba(3, 169, 243);
+      }
+
+      .dot-mode .temp-curve-hourly {
+        background: rgba(156, 39, 176);
+      }
+
+      /* 圆点上方的温度文字 */
+      .dot-mode .temp-text {
+        position: absolute;
+        top: -4vw;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 2vw;
+        font-weight: 600;
+        white-space: nowrap;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        z-index: 4;
+      }
+
+      .dot-mode .temp-curve-high .temp-text {
+        color: rgba(255, 87, 34);
+      }
+
+      .dot-mode .temp-curve-low .temp-text {
+        color: rgba(3, 169, 243);
+      }
+
+      .dot-mode .temp-curve-hourly .temp-text {
+        color: rgba(156, 39, 176);
+      }
+
 
       .unavailable {
         display: flex;
@@ -666,9 +922,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _getHourlyForecast() {
-    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
     if (!this.entity?.attributes?.hourly_forecast) return [];
-    return this.entity.attributes.hourly_forecast.slice(0, columns);
+    
+    // 直接取前24小时数据，用于滑动显示
+    return this.entity.attributes.hourly_forecast.slice(0, 24);
   }
 
   _toggleForecastMode(mode) {
@@ -718,6 +975,39 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     return `${month}月${day}日`;
+  }
+
+
+  _getCustomTemperature() {
+    if (!this.config?.use_custom_entities || !this.config?.temperature_entity || !this.hass?.states[this.config.temperature_entity]) {
+      return null;
+    }
+    
+    const temp = this.hass.states[this.config.temperature_entity].state;
+    const tempValue = parseFloat(temp);
+    
+    if (isNaN(tempValue)) {
+      return null;
+    }
+    
+    // 保留1位小数
+    return tempValue.toFixed(1);
+  }
+
+  _getCustomHumidity() {
+    if (!this.config?.use_custom_entities || !this.config?.humidity_entity || !this.hass?.states[this.config.humidity_entity]) {
+      return null;
+    }
+    
+    const humidity = this.hass.states[this.config.humidity_entity].state;
+    const humidityValue = parseFloat(humidity);
+    
+    if (isNaN(humidityValue)) {
+      return null;
+    }
+    
+    // 保留1位小数
+    return humidityValue.toFixed(1);
   }
 
   _getTemperatureExtremes() {
@@ -788,6 +1078,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     
     const { BUTTON_HEIGHT_VW, FORECAST_COLUMNS } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
     
+    // 动态计算实际列数
+    const actualColumns = this.forecastMode === 'daily' ? 
+      (this.config?.columns || FORECAST_COLUMNS) : 
+      forecastData.length;
+    
     let boundsList;
     if (this.forecastMode === 'daily') {
       // 每日天气使用现有的计算方法
@@ -857,7 +1152,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       const y = topPosition - curveTop + BUTTON_HEIGHT_VW / 1.7;
       
       // 计算X坐标（百分比）
-      const x = (index * 100) / FORECAST_COLUMNS + (100 / FORECAST_COLUMNS) / 2;
+      const x = (index * 100) / actualColumns + (100 / actualColumns) / 2;
       
       return { x, y };
     });
@@ -1002,9 +1297,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (!this.entity || this.entity.state === 'unavailable') {
       return html`<div class="unavailable"></div>`;
     }
-
-    const temperature = this._formatTemperature(this.entity.attributes?.temperature);
-    const humidity = this._formatTemperature(this.entity.attributes?.humidity);
+    // 获取自定义或默认的温度和湿度
+    const customTemp = this._getCustomTemperature();
+    const customHumidity = this._getCustomHumidity();
+    const temperature = customTemp || this._formatTemperature(this.entity.attributes?.temperature);
+    const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
     const city = this.entity.attributes?.city || '未知城市';
@@ -1017,9 +1314,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
     const bgColor = theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)';
     const secondaryColor = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
+    const visualStyle = this.config.visual_style || 'button';
+    const isDotMode = visualStyle === 'dot';
 
     return html`
-      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''}" style="background-color: ${bgColor}; color: ${fgColor};">
+      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor};">
         <div class="main-content">
           <!-- 天气头部信息 -->
           <div class="weather-header">
@@ -1124,12 +1423,23 @@ class XiaoshiWeatherPhoneCard extends LitElement {
               
               <!-- 高温（橙色）和 低温（蓝色） -->
               <div class="forecast-temp-container">
-                <div class="temp-curve-high" style="top: ${tempBounds.highTop}vw">
-                  ${highTemp} °
-                </div>
-                <div class="temp-curve-low" style="top: ${tempBounds.lowTop}vw">
-                  ${lowTemp} °
-                </div>
+                ${this.config.visual_style === 'dot' ? html`
+                  <!-- 圆点模式 -->
+                  <div class="temp-curve-high" style="top: ${tempBounds.highTop + 1.75}vw">
+                    <div class="temp-text">${highTemp}°</div>
+                  </div>
+                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop + 1.75}vw">
+                    <div class="temp-text">${lowTemp}°</div>
+                  </div>
+                ` : html`
+                  <!-- 按钮模式 -->
+                  <div class="temp-curve-high" style="top: ${tempBounds.highTop}vw">
+                    ${highTemp} °
+                  </div>
+                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop}vw">
+                    ${lowTemp} °
+                  </div>
+                `}
                 
                 <!-- 雨量填充矩形 -->
                 ${rainfall > 0 ? html`
@@ -1185,83 +1495,99 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       }, 50);
     });
     
-    const columns = this.config?.columns || XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
+    // 计算实际列数（小时天气可能有更多数据）
+    const columns = hourlyForecast.length;
+    // 使用与每日天气相同的宽度计算公式：
+    // 每列宽度 = (100vw - 8px*2 - (FORECAST_COLUMNS-1)*2px) / FORECAST_COLUMNS
+    const FORECAST_COLUMNS = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS.FORECAST_COLUMNS;
+    const columnWidth = 9.6
+     
     return html`
-      <div class="forecast-container" style="grid-template-columns: repeat(${columns}, 1fr);">
-        <!-- 小时温度连接线 Canvas -->
-        <canvas class="temp-line-canvas temp-line-canvas-high" id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
-        
-        ${hourlyForecast.map((hour, index) => {
-          const timeStr = this._formatHourlyTime(hour.datetime);
-          const dateStr = this._formatHourlyDate(hour.datetime);
-          const temp = this._formatTemperature(hour.native_temperature);
+      <div class="hourly-forecast-scroll-container">
+        <div class="hourly-forecast-container" style="grid-template-columns: repeat(${columns}, ${columnWidth}vw);">
+          <!-- 小时温度连接线 Canvas -->
+          <canvas class="temp-line-canvas temp-line-canvas-high" id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
           
-          // 获取雨量信息
-          const rainfall = parseFloat(hour.native_precipitation) || 0;
-          
-          // 计算温度位置（简化版）
-          const { minTemp, maxTemp, range, allEqual } = extremes;
-          const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
-          const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
-          
-          let finalTopPosition;
-          if (allEqual) {
-            // 如果所有温度相等，将位置设置在中间
-            finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
-          } else {
-            const unitPosition = range === 0 ? 0 : availableHeight / range;
-            const tempValue = parseFloat(hour.native_temperature) || 0;
-            const topPosition = (maxTemp - tempValue) * unitPosition;
-            finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
-          }
-          
-          // 计算雨量矩形高度和位置
-          const RAINFALL_MAX = 2; // 最大雨量20mm
-          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25);
+          ${hourlyForecast.map((hour, index) => {
+            const timeStr = this._formatHourlyTime(hour.datetime);
+            const dateStr = this._formatHourlyDate(hour.datetime);
+            const temp = this._formatTemperature(hour.native_temperature);
+            
+            // 获取雨量信息
+            const rainfall = parseFloat(hour.native_precipitation) || 0;
+            
+            // 计算温度位置（简化版）
+            const { minTemp, maxTemp, range, allEqual } = extremes;
+            const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
+            const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
+            
+            let finalTopPosition;
+            if (allEqual) {
+              // 如果所有温度相等，将位置设置在中间
+              finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+            } else {
+              const unitPosition = range === 0 ? 0 : availableHeight / range;
+              const tempValue = parseFloat(hour.native_temperature) || 0;
+              const topPosition = (maxTemp - tempValue) * unitPosition;
+              finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
+            }
+            
+            // 计算雨量矩形高度和位置
+            const RAINFALL_MAX = 2; // 最大雨量2mm
+            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25);
 
-          return html`
-            <div class="forecast-day" style="background: ${backgroundColor};">
-              <!-- 时间（hh:mm） -->
-              <div class="forecast-weekday">${timeStr}</div>
-              
-              <!-- 日期（mm月dd日） -->
-              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
-              
-              <!-- 温度（紫色） -->
-              <div class="forecast-temp-container">
-                <div class="temp-curve-hourly" style="top: ${finalTopPosition}vw">
-                  ${temp} °
-                </div>
+            return html`
+              <div class="forecast-day" style="background: ${backgroundColor};">
+                <!-- 时间（hh:mm） -->
+                <div class="forecast-weekday">${timeStr}</div>
                 
-                <!-- 雨量填充矩形 -->
+                <!-- 日期（mm月dd日） -->
+                <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
+                
+                <!-- 温度（紫色） -->
+                <div class="forecast-temp-container">
+                  ${this.config.visual_style === 'dot' ? html`
+                    <!-- 圆点模式 -->
+                    <div class="temp-curve-hourly" style="top: ${finalTopPosition + 1.75}vw">
+                      <div class="temp-text">${temp}°</div>
+                    </div>
+                  ` : html`
+                    <!-- 按钮模式 -->
+                    <div class="temp-curve-hourly" style="top: ${finalTopPosition}vw">
+                      ${temp} °
+                    </div>
+                  `}
+                  
+                  <!-- 雨量填充矩形 -->
+                  ${rainfall > 0 ? html`
+                    <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${0.3+rainfall / RAINFALL_MAX}"></div>
+                  ` : ''}
+                </div>
+                <div class="forecast-temp-null"></div>
+              </div>
+            `;
+          })}
+          
+          <!-- 雨量标签行 -->
+          ${hourlyForecast.map(hour => {
+            const rainfall = parseFloat(hour.native_precipitation) || 0;
+            return html`
+              <div class="forecast-rainfall-container">
                 ${rainfall > 0 ? html`
-                  <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${0.3+rainfall / RAINFALL_MAX}"></div>
+                  <div class="forecast-rainfall">
+                    ${rainfall}mm
+                  </div>
                 ` : ''}
               </div>
-              <div class="forecast-temp-null"></div>
-            </div>
-          `;
-        })}
-        
-        <!-- 雨量标签行 - 10列网格 -->
-        ${hourlyForecast.map(hour => {
-          const rainfall = parseFloat(hour.native_precipitation) || 0;
-          return html`
-            <div class="forecast-rainfall-container">
-              ${rainfall > 0 ? html`
-                <div class="forecast-rainfall">
-                  ${rainfall}mm
-                </div>
-              ` : ''}
-            </div>
-          `;
-        })}
-        
-        <!-- 天气图标行 -->
-        ${this._renderHourlyWeatherIcons(hourlyForecast)}
-        
-        <!-- 风向风级行 -->
-        ${this._renderHourlyWindInfo(hourlyForecast)}
+            `;
+          })}
+          
+          <!-- 天气图标行 -->
+          ${this._renderHourlyWeatherIcons(hourlyForecast)}
+          
+          <!-- 风向风级行 -->
+          ${this._renderHourlyWindInfo(hourlyForecast)}
+        </div>
       </div>
     `;
   }
@@ -1440,7 +1766,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return 8;
   }
 }
-
 customElements.define('xiaoshi-weather-phone-card', XiaoshiWeatherPhoneCard);
 
 window.customCards = window.customCards || [];
