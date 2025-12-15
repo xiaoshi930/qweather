@@ -404,12 +404,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        justify-content: space-between;
-        min-height: 10vw;
-      }
-
-      .forecast-toggle-button {
-        margin-top: auto;
       }
 
       .toggle-btn {
