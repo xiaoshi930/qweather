@@ -568,7 +568,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         left: 0;
         right: 0;
         background: rgba(80, 177, 200, 0.8);
-        border-radius: 0.5vw;
+        border-radius: 1.2vw;
         z-index: 0;
         margin: 0 -1vw;
         bottom: -3vw;
@@ -1970,6 +1970,78 @@ class XiaoshiWeatherPadEditor extends LitElement {
     `;
   }
 
+  _renderWarningModal() {
+    if (!this.showWarningModal) {
+      return '';
+    }
+
+    if (!this.entity?.attributes?.warning || this.entity.attributes.warning.length === 0) {
+      return html`
+        <dialog class="warning-modal-dialog" @click="${() => this._toggleWarningModal()}">
+          <div class="warning-modal-content" @click="${(e) => e.stopPropagation()}">
+            <div class="warning-modal-header">
+              <h2>天气预警</h2>
+              <button class="warning-close-btn" @click="${() => this._toggleWarningModal()}">×</button>
+            </div>
+            <div class="warning-modal-body">
+              <p>暂无预警信息</p>
+            </div>
+          </div>
+        </dialog>
+      `;
+    }
+
+    const warning = this.entity.attributes.warning;
+    const theme = this._evaluateTheme();
+    const warningColor = this._getWarningColor(warning); // 获取最高预警级别的颜色
+    
+    // 根据主题设置颜色
+    const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
+    const secondaryTextColor = theme === 'on' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
+    const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
+
+    return html`
+      <dialog class="warning-modal-dialog" @click="${() => this._toggleWarningModal()}">
+        <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
+          <div class="warning-modal-header">
+            <h2 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h2>
+            <button class="warning-close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleWarningModal()}">×</button>
+          </div>
+          <div class="warning-modal-body">
+            ${warning.map((warningItem, index) => {
+              const typeName = warningItem.typeName ?? "";
+              const level = warningItem.level ?? "";
+              const sender = warningItem.sender ?? "";
+              const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 16) : "";
+              const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 16) : "";
+              const text = warningItem.text ?? "";
+              
+              // 获取当前预警项的颜色
+              const itemWarningColor = this._getWarningColorForLevel(level);
+
+              return html`
+                <div class="warning-item" style="border-left-color: ${itemWarningColor};">
+                  <div class="warning-item-header">
+                    <div class="warning-title" style="color: ${itemWarningColor};">
+                      ${sender}: 【${typeName}】${level}预警
+                    </div>
+                    <div class="warning-time" style="color: ${secondaryTextColor};">
+                      ${startTime} ~ ${endTime}
+                    </div>
+                  </div>
+                  <div class="warning-text" style="color: ${secondaryTextColor};">
+                    ${text}
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+      </dialog>
+    `;
+  }
+
   _entityChanged(e) {
     const { name, value } = e.target;
     if (!value && name !== 'theme' && name !== 'columns' && name !== 'width' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'visual_style') return;
@@ -2055,7 +2127,7 @@ class XiaoshiWeatherPadEditor extends LitElement {
     }, 0);
   }
 }
-customElements.define('xiaoshi-weather-pad-editor', XiaoshiWeatherPadEditor);
+customElements.define('xiaoshi-weather-pad-editor1', XiaoshiWeatherPadEditor);
 
 class XiaoshiWeatherPadCard extends LitElement {
   // 温度计算常量
@@ -2299,7 +2371,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         left: 0;
         right: 0;
         background: rgba(80, 177, 200, 0.8);
-        border-radius: 2.5px;
+        border-radius: 6px;
         z-index: 0;
         margin: 0 -5px;
         bottom: -15px;
@@ -2373,6 +2445,19 @@ class XiaoshiWeatherPadCard extends LitElement {
         height: 125px; 
       }
 
+      .temp-line-canvas-hourly {
+        position: absolute !important;
+        top: 38.5px !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 125px !important;
+        width: 100% !important;
+        pointer-events: none !important;
+        z-index: 2 !important;
+      }
+
+
+
       .temp-curve-high {
         position: absolute;
         left: 0;
@@ -2413,13 +2498,25 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /* 圆点模式样式 */
       .dot-mode .temp-curve-high,
-      .dot-mode .temp-curve-low,
-      .dot-mode .temp-curve-hourly {
+      .dot-mode .temp-curve-low {
         width: 5px;
         height: 5px;
         border-radius: 50%;
         left: calc(50% - 2.5px);
         margin-top: -2.5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      }
+      .dot-mode .temp-curve-hourly {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        left: calc(50% - 2.5px);
+        margin-top: 5px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2494,118 +2591,43 @@ class XiaoshiWeatherPadCard extends LitElement {
         transform: scale(1.1);
       }
 
-      /*预警详情卡片样式*/
-      .warning-details-card {
-        position: relative;
-        border-radius: 10px;
-        margin-top: 5px;
-        padding: 10px;
-        color: white;
-        overflow: hidden;
-        backdrop-filter: blur(5px);
-        transition: all 0.3s ease;
-        animation: slideDown 0.3s ease-out;
+      /*24小时天气弹窗样式 - 使用原生dialog*/
+      .hourly-modal-dialog {
+        border: none;
+        background: transparent;
+        padding: 0;
+        max-width: 80vw;
+        max-height: 80vh;
+        overflow: visible;
       }
 
-      @keyframes slideDown {
-        from {
-          opacity: 0;
-          transform: translateY(-10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      /*预警标题样式*/
-      .warning-title-line {
-        font-size: 12.5px;
-        font-weight: bold;
-        white-space: nowrap;
-        height: 20px;
-        margin-bottom: 2.5px;
-      }
-
-      /*预警文本滚动容器*/
-      .warning-text-container {
-        display: flex;
-        overflow: hidden;
-        white-space: nowrap;
-        width: 100%;
-        height: 15px;
-        font-size: 12.5px;
-        align-items: center;
-        margin-bottom: 5px;
-      }
-
-      /*预警文本滚动内容*/
-      .warning-text-scroll {
-        display: inline-block;
-        padding-left: 100%;
-        animation: scroll linear infinite;
-      }
-
-      @keyframes scroll {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(-100%); }
-      }
-
-      /*24小时天气弹窗样式*/
-      .hourly-modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+      .hourly-modal-dialog::backdrop {
         background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        animation: fadeIn 0.3s ease-out;
-      }
-
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
       }
 
       .hourly-modal-content {
         background-color: rgba(50, 50, 50);
         border-radius: 12px;
-        width: 95%;
-        max-width: 800px;
+        max-width: 80vw;
         max-height: 80vh;
         overflow: hidden;
-        animation: slideUp 0.3s ease-out;
-      }
-
-      @keyframes slideUp {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        margin: 0 auto;
       }
 
       .hourly-modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-left: 15px;
+        margin-left: 25px;
         margin-right: 10px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         height: 60px;
+        font-size: 20px;
       }
 
       .hourly-modal-header h3 {
         margin: 0;
-        font-size: 18px;
         font-weight: bold;
+        font-size: 20px;
       }
 
       .close-btn {
@@ -2613,7 +2635,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         border: none;
         font-size: 24px;
         cursor: pointer;
-        color: rgba(255, 255, 0);
+        color: rgba(255, 100, 0);
         padding: 0;
         margin-right: 10px;
         width: 30px;
@@ -2631,7 +2653,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       }
 
       .hourly-modal-body {
-        padding: 0 15px;
+        padding: 0 2px;
         overflow: hidden;
       }
 
@@ -2649,9 +2671,115 @@ class XiaoshiWeatherPadCard extends LitElement {
         -ms-user-select: none; /* IE/Edge */
       }
 
+      /* 小时预报容器wrapper隐藏滚动条 */
+      .hourly-modal-body .forecast-container-wrapper {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+      }
+
       /* 隐藏滚动条但保留滚动功能 */
-      .hourly-modal-body .forecast-container::-webkit-scrollbar {
+      .hourly-modal-body .forecast-container::-webkit-scrollbar,
+      .hourly-modal-body .forecast-container-wrapper::-webkit-scrollbar {
         display: none; /* Chrome, Safari and Opera */
+        width: 0;
+        height: 0;
+      }
+
+      /*预警弹窗样式*/
+      .warning-modal-dialog {
+        border: none;
+        background: transparent;
+        padding: 0;
+        max-width: 80vw;
+        max-height: 80vh;
+        overflow: visible;
+      }
+
+      .warning-modal-dialog::backdrop {
+        background-color: rgba(0, 0, 0, 0.6);
+      }
+
+      .warning-modal-content {
+        border-radius: 12px;
+        width: 80vw;
+        max-width: 80vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin: 0 auto;
+        color: white;
+      }
+
+      .warning-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding-bottom: 10px;
+      }
+
+      .warning-modal-header h2 {
+        margin: 10px 20px 5px 20px;
+        color: #FFA726;
+        font-size: 20px;
+        font-weight: bold;
+      }
+
+      .warning-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: rgba(255, 100, 0);
+        margin-right: 10px;
+        padding: 5px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+
+      .warning-close-btn:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(255, 0, 0);
+      }
+
+      .warning-item {
+        background: rgba(127, 127, 127, 0.15);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 12px 20px;
+        border-left: 4px solid #FFA726;
+        transition: all 0.2s ease;
+      }
+
+      .warning-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+      }
+
+      .warning-title {
+        font-weight: bold;
+        font-size: 15px;
+        flex: 1;
+      }
+
+      .warning-time {
+        font-size: 12px;
+        white-space: nowrap;
+        margin-left: 10px;
+      }
+
+      .warning-text {
+        font-size: 13px;
+        line-height: 1.5;
       }
 
     `;
@@ -2659,13 +2787,15 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   constructor() {
     super();
-    this.forecastMode = 'daily'; // 默认显示每日天气
     this.showWarningDetails = false;
     this.warningTimer = null;
     this.showHourlyModal = false; // 24小时天气弹窗状态
+    this.showWarningModal = false; // 预警弹窗状态
     this.isDragging = false;
     this.startX = 0;
     this.scrollLeft = 0;
+    this.scrollTarget = null;
+    this.rafId = null;
   }
   
   _evaluateTheme() {
@@ -2706,7 +2836,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
-    const isDark = false;
+    const isDark = this._evaluateTheme() === 'on';
     const iconPath = XiaoshiWeatherPadCard.ICON_PATH;
     
     const iconMap = {
@@ -2756,14 +2886,23 @@ class XiaoshiWeatherPadCard extends LitElement {
     return this.entity.attributes.hourly_forecast.slice(0, 24);
   }
 
-  _toggleForecastMode(mode) {
-    this.forecastMode = mode;
-    this.requestUpdate();
-  }
+
 
   _toggleHourlyModal() {
     this.showHourlyModal = !this.showHourlyModal;
     this.requestUpdate();
+    
+    // 使用原生dialog API
+    this.updateComplete.then(() => {
+      const dialog = this.shadowRoot?.querySelector('.hourly-modal-dialog');
+      if (dialog) {
+        if (this.showHourlyModal) {
+          dialog.showModal();
+        } else {
+          dialog.close();
+        }
+      }
+    });
   }
 
   _renderHourlyModal() {
@@ -2772,18 +2911,23 @@ class XiaoshiWeatherPadCard extends LitElement {
     }
     const hourlyForecast = this._getHourlyForecast();
     if (!hourlyForecast || hourlyForecast.length === 0) {
+      const theme = this._evaluateTheme();
+      const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+      const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
+      const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
+      
       return html`
-        <div class="hourly-modal-backdrop" @click="${() => this._toggleHourlyModal()}">
-          <div class="hourly-modal-content" @click="${(e) => e.stopPropagation()}">
+        <dialog class="hourly-modal-dialog" @click="${() => this._toggleHourlyModal()}">
+          <div class="hourly-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
             <div class="hourly-modal-header">
-              <h3>24小时天气预报</h3>
-              <button class="close-btn" @click="${() => this._toggleHourlyModal()}">×</button>
+              <h3 style="color: ${textColor};">24小时天气预报</h3>
+              <button class="close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleHourlyModal()}">×</button>
             </div>
             <div class="hourly-modal-body">
-              <p>暂无小时天气数据</p>
+              <p style="color: ${textColor};">暂无小时天气数据</p>
             </div>
           </div>
-        </div>
+        </dialog>
       `;
     }
 
@@ -2794,25 +2938,24 @@ class XiaoshiWeatherPadCard extends LitElement {
     const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
-    const warning = this.entity.attributes?.warning || [];
     const theme = this._evaluateTheme();
-    const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
-    const warningColor = this._getWarningColor(warning);
 
-    // 获取颜色
-    const fgColor = 'rgb(255, 255, 255)';
+    // 根据主题设置颜色
+    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
     const bgColor = 'rgb(255, 255, 255, 0)';
-    const secondaryColor = 'rgb(110, 190, 240)';
+    const secondaryColor = theme === 'on' ? 'rgb(66, 165, 245)' : 'rgb(110, 190, 240)';
+    const modalBgColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
 
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
 
     return html`
-      <div class="hourly-modal-backdrop" @click="${() => this._toggleHourlyModal()}">
-        <div class="hourly-modal-content" @click="${(e) => e.stopPropagation()}">
+      <dialog class="hourly-modal-dialog" @click="${() => this._toggleHourlyModal()}">
+        <div class="hourly-modal-content" style="background-color: ${modalBgColor};" @click="${(e) => e.stopPropagation()}">
           <div class="hourly-modal-header">
-            <h1>24小时天气预报</h1>
-            <button class="close-btn" @click="${() => this._toggleHourlyModal()}">×</button>
+            <h3 style="color: ${fgColor};">24小时天气预报</h3>
+            <button class="close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleHourlyModal()}">×</button>
           </div>
           <div class="hourly-modal-body">
             <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
@@ -2834,23 +2977,105 @@ class XiaoshiWeatherPadCard extends LitElement {
                       </div>
                     </div>
                   </div>
-                  <!-- 右侧区域 -->
-                  <div class="weather-right">
-                    <!-- 预警图标 -->
-                    ${hasWarning ? 
-                      html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" >⚠ ${warning.length}</div>` : ''}
-                  </div>
                 </div>
-
-                <!-- 预报内容 - 改为小时预报 -->
+                
+                <!-- 小时预报 -->
                 ${this._renderHourlyForecast()}
 
-              </div>
-              
+              </div>   
             </div>
           </div>
         </div>
-      </div>
+      </dialog>
+    `;
+  }
+
+  _toggleWarningModal() {
+    this.showWarningModal = !this.showWarningModal;
+    this.requestUpdate();
+    
+    // 使用原生dialog API
+    this.updateComplete.then(() => {
+      const dialog = this.shadowRoot?.querySelector('.warning-modal-dialog');
+      if (dialog) {
+        if (this.showWarningModal) {
+          dialog.showModal();
+        } else {
+          dialog.close();
+        }
+      }
+    });
+  }
+
+  _renderWarningModal() {
+    if (!this.showWarningModal) {
+      return '';
+    }
+
+    if (!this.entity?.attributes?.warning || this.entity.attributes.warning.length === 0) {
+      return html`
+        <dialog class="warning-modal-dialog" @click="${() => this._toggleWarningModal()}">
+          <div class="warning-modal-content" @click="${(e) => e.stopPropagation()}">
+            <div class="warning-modal-header">
+              <h2>天气预警</h2>
+              <button class="warning-close-btn" @click="${() => this._toggleWarningModal()}">×</button>
+            </div>
+            <div class="warning-modal-body">
+              <p>暂无预警信息</p>
+            </div>
+          </div>
+        </dialog>
+      `;
+    }
+
+    const warning = this.entity.attributes.warning;
+    const theme = this._evaluateTheme();
+    const warningColor = this._getWarningColor(warning); // 获取最高预警级别的颜色
+    
+    // 根据主题设置颜色
+    const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
+    const secondaryTextColor = theme === 'on' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
+    const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
+
+    return html`
+      <dialog class="warning-modal-dialog" @click="${() => this._toggleWarningModal()}">
+        <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
+          <div class="warning-modal-header">
+            <h2 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h2>
+            <button class="warning-close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleWarningModal()}">×</button>
+          </div>
+          <div class="warning-modal-body">
+            ${warning.map((warningItem, index) => {
+              const typeName = warningItem.typeName ?? "";
+              const level = warningItem.level ?? "";
+              const sender = warningItem.sender ?? "";
+              const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 16) : "";
+              const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 16) : "";
+              const text = warningItem.text ?? "";
+              
+              // 获取当前预警项的颜色
+              const itemWarningColor = this._getWarningColorForLevel(level);
+
+              return html`
+                <div class="warning-item" style="border-left-color: ${itemWarningColor};">
+                  <div class="warning-item-header">
+                    <div class="warning-title" style="color: ${itemWarningColor};">
+                      ${sender}: 【${typeName}】${level}预警
+                    </div>
+                    <div class="warning-time" style="color: ${secondaryTextColor};">
+                      ${startTime} ~ ${endTime}
+                    </div>
+                  </div>
+                  <div class="warning-text" style="color: ${secondaryTextColor};">
+                    ${text}
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+      </dialog>
     `;
   }
 
@@ -2960,22 +3185,35 @@ class XiaoshiWeatherPadCard extends LitElement {
   _getTemperatureExtremes() {
     let temperatures = [];
     
-    if (this.forecastMode === 'daily') {
-      const forecastDays = this._getForecastDays();
-      if (forecastDays.length === 0) {
-        return { minTemp: 0, maxTemp: 0, range: 0 };
-      }
-      temperatures = forecastDays.flatMap(day => [
-        parseFloat(day.native_temp_low) || 0,
-        parseFloat(day.native_temperature) || 0
-      ]);
-    } else {
-      const hourlyForecast = this._getHourlyForecast();
-      if (hourlyForecast.length === 0) {
-        return { minTemp: 0, maxTemp: 0, range: 0 };
-      }
-      temperatures = hourlyForecast.map(hour => parseFloat(hour.native_temperature) || 0);
+    // 主卡片只显示每日天气，所以固定使用 daily 模式
+    const forecastDays = this._getForecastDays();
+    if (forecastDays.length === 0) {
+      return { minTemp: 0, maxTemp: 0, range: 0 };
     }
+    temperatures = forecastDays.flatMap(day => [
+      parseFloat(day.native_temp_low) || 0,
+      parseFloat(day.native_temperature) || 0
+    ]);
+
+    const minTemp = Math.min(...temperatures);
+    const maxTemp = Math.max(...temperatures);
+    const range = maxTemp - minTemp;
+    
+    // 检查是否所有温度都相等
+    const allEqual = temperatures.every(temp => temp === temperatures[0]);
+    
+    return { minTemp, maxTemp, range, allEqual };
+  }
+
+  _getHourlyTemperatureExtremes() {
+    let temperatures = [];
+    
+    // 小时预报专用温度极值计算
+    const hourlyForecast = this._getHourlyForecast();
+    if (hourlyForecast.length === 0) {
+      return { minTemp: 0, maxTemp: 0, range: 0, allEqual: true };
+    }
+    temperatures = hourlyForecast.map(hour => parseFloat(hour.native_temperature) || 0);
 
     const minTemp = Math.min(...temperatures);
     const maxTemp = Math.max(...temperatures);
@@ -3024,75 +3262,31 @@ class XiaoshiWeatherPadCard extends LitElement {
     if (forecastData.length === 0) return { points: [], curveHeight: 0, curveTop: 0 };
     
     const { BUTTON_HEIGHT_PX, FORECAST_COLUMNS } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
-    // 动态计算实际列数
-    const actualColumns = this.forecastMode === 'daily' ? 
-      (this.config?.columns || FORECAST_COLUMNS) : 
-      forecastData.length;
+    // 主卡片只显示每日天气，所以固定使用 daily 模式的列数
+    const actualColumns = this.config?.columns || FORECAST_COLUMNS;
 
-    let boundsList;
-    if (this.forecastMode === 'daily') {
-      // 每日天气使用现有的计算方法
-      boundsList = forecastData.map(day => this._calculateTemperatureBounds(day, extremes));
-    } else {
-      // 小时天气只需要一个温度，简化计算
-      const { minTemp, maxTemp, range, allEqual } = extremes;
-      const { BUTTON_HEIGHT_PX, CONTAINER_HEIGHT_PX } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
-      const availableHeight = CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX;
-      
-      // 如果所有温度相等，将位置设置在中间
-      if (allEqual) {
-        const middlePosition = (CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX) / 2;
-        boundsList = forecastData.map(() => ({
-          highTop: middlePosition,
-          lowTop: middlePosition
-        }));
-      } else {
-        const unitPosition = range === 0 ? 0 : availableHeight / range;
-        boundsList = forecastData.map(hour => {
-          const temp = parseFloat(hour.native_temperature) || 0;
-          const topPosition = (maxTemp - temp) * unitPosition;
-          return { highTop: topPosition, lowTop: topPosition };
-        });
-      }
-    }
+    // 每日天气使用现有的计算方法
+    let boundsList = forecastData.map(day => this._calculateTemperatureBounds(day, extremes));
     
     // 计算曲线范围
     let curveTop, curveBottom, curveHeight;
     
-    if (this.forecastMode === 'daily') {
-      if (isHigh) {
-        const highTops = boundsList.map(bounds => bounds.highTop);
-        curveTop = Math.min(...highTops);
-        curveBottom = Math.max(...highTops) + BUTTON_HEIGHT_PX;
-        curveHeight = curveBottom - curveTop;
-      } else {
-        const lowTops = boundsList.map(bounds => bounds.lowTop);
-        curveTop = 0;
-        curveBottom = Math.max(...lowTops) + BUTTON_HEIGHT_PX;
-        curveHeight = curveBottom - curveTop;
-      }
+    // 每日天气模式
+    if (isHigh) {
+      const highTops = boundsList.map(bounds => bounds.highTop);
+      curveTop = Math.min(...highTops);
+      curveBottom = Math.max(...highTops) + BUTTON_HEIGHT_PX;
+      curveHeight = curveBottom - curveTop;
     } else {
-      // 小时天气模式
-      const tops = boundsList.map(bounds => bounds.highTop);
-      const { allEqual } = extremes;
-      
-      if (allEqual) {
-        // 如果所有温度相等，将曲线设置在中间位置，高度为按钮高度
-        curveTop = 0; // 所有点都在同一个位置
-        curveBottom = curveTop + BUTTON_HEIGHT_PX;
-        curveHeight = BUTTON_HEIGHT_PX;
-      } else {
-        curveTop = Math.min(...tops);
-        curveBottom = Math.max(...tops) + BUTTON_HEIGHT_PX;
-        curveHeight = curveBottom - curveTop;
-      }
+      const lowTops = boundsList.map(bounds => bounds.lowTop);
+      curveTop = 0;
+      curveBottom = Math.max(...lowTops) + BUTTON_HEIGHT_PX;
+      curveHeight = curveBottom - curveTop;
     }
     
     const points = forecastData.map((data, index) => {
       const bounds = boundsList[index];
-      const topPosition = this.forecastMode === 'daily' ? 
-        (isHigh ? bounds.highTop : bounds.lowTop) : 
-        bounds.highTop;
+      const topPosition = isHigh ? bounds.highTop : bounds.lowTop;
       
       // 计算相对于曲线顶部的Y坐标（px单位），使用矩形中心
       const y = topPosition - curveTop + BUTTON_HEIGHT_PX/ 1.7;
@@ -3100,6 +3294,49 @@ class XiaoshiWeatherPadCard extends LitElement {
       // 计算X坐标（百分比）
       const x = (index * 100) / actualColumns + (100 / actualColumns) / 2;
       
+      return { x, y };
+    });
+    
+    return { points, curveHeight, curveTop };
+  }
+
+  _generateHourlyTemperatureLine(hourlyData, extremes) {
+    if (hourlyData.length === 0) return { points: [], curveHeight: 0, curveTop: 0 };
+    
+    const { BUTTON_HEIGHT_PX, CONTAINER_HEIGHT_PX } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
+    const { minTemp, maxTemp, range } = extremes;
+    
+    const actualColumns = hourlyData.length;
+    // 小时天气只有一个温度，使用实际可用高度计算
+    const availableHeight = CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX;
+    
+    // 计算每个小时的温度位置
+    let positions;
+    if (range === 0) {
+      // 如果所有温度相等，将位置设置在中间
+      const middlePosition = availableHeight / 2;
+      positions = hourlyData.map(() => middlePosition);
+    } else {
+      const unitPosition = availableHeight / range;
+      positions = hourlyData.map(hour => {
+        const temp = parseFloat(hour.native_temperature) || 0;
+        return (maxTemp - temp) * unitPosition;
+      });
+    }
+    
+    // 计算曲线范围
+    const curveTop = Math.min(...positions);
+    const curveBottom = Math.max(...positions) + BUTTON_HEIGHT_PX;
+    const curveHeight = curveBottom - curveTop;
+
+    // 生成点坐标 - 需要覆盖整个可滚动区域
+    const actualHours = hourlyData.length;
+    // 为了确保曲线覆盖整个可滚动区域，我们需要计算基于实际小时数的X坐标
+    // 使用实际小时数作为总列数，确保曲线跨越整个可滚动宽度
+    const points = hourlyData.map((data, index) => {
+      const y = positions[index] - curveTop + BUTTON_HEIGHT_PX / 1.7;
+      // X坐标计算：每个小时占据相等的空间，曲线覆盖所有小时数据
+      const x = (index * 100) / actualHours + (100 / actualHours) / 2;
       return { x, y };
     });
     
@@ -3137,7 +3374,16 @@ class XiaoshiWeatherPadCard extends LitElement {
       const rect = canvas.getBoundingClientRect();
       
       // 设置Canvas实际尺寸
-      canvas.width = rect.width;
+      let targetWidth = rect.width;
+      
+      // 对于小时温度曲线，确保Canvas覆盖整个可滚动宽度
+      if (canvasId.includes('hourly')) {
+        const hourlyData = this._getHourlyForecast();
+        const contentWidth = hourlyData.length * 50; // 每小时50px
+        targetWidth = Math.max(rect.width, contentWidth);
+      }
+      
+      canvas.width = targetWidth;
       canvas.height = rect.height;
       
       if (points.length < 2) {
@@ -3218,6 +3464,15 @@ class XiaoshiWeatherPadCard extends LitElement {
     });
   }
 
+  _getWarningColorForLevel(level) {
+    if (level == "红色") return "rgb(255,50,50)";
+    if (level == "橙色") return "rgb(255,100,0)";
+    if (level == "黄色") return "rgb(255,200,0)";
+    if (level == "蓝色") return "rgb(50,150,200)";
+    
+    return "#FFA726"; // 默认颜色
+  }
+
   _getWarningColor(warning) {
     if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
     
@@ -3231,12 +3486,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       }
     }
     
-    if (level == "红色") return "rgb(255,50,50)";
-    if (level == "橙色") return "rgb(255,100,0)";
-    if (level == "黄色") return "rgb(255,200,0)";
-    if (level == "蓝色") return "rgb(50,150,200)";
-    
-    return "#FFA726"; // 默认颜色
+    return this._getWarningColorForLevel(level);
   }
 
   render() {
@@ -3287,9 +3537,9 @@ class XiaoshiWeatherPadCard extends LitElement {
             </div>
             <!-- 右侧区域 -->
             <div class="weather-right">
-              <!-- 预警图标 -->
-              ${hasWarning ? 
-                html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningDetails()}">⚠ ${warning.length}</div>` : ''}
+                    <!-- 预警图标 -->
+                    ${hasWarning ? 
+                      html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningModal()}">⚠ ${warning.length}</div>` : ''}
               <!-- 24小时天气按钮 -->
               <div class="forecast-toggle-button">
                 <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
@@ -3304,11 +3554,11 @@ class XiaoshiWeatherPadCard extends LitElement {
 
         </div>
         
-        <!-- 预警详情 - 在最下方显示 -->
-        ${this.showWarningDetails && hasWarning ? this._renderWarningDetails() : ''}
-        
         <!-- 24小时天气弹窗 -->
         ${this.showHourlyModal ? this._renderHourlyModal() : ''}
+        
+        <!-- 预警信息弹窗 -->
+        ${this.showWarningModal ? this._renderWarningModal() : ''}
       </div>
     `;
   }
@@ -3426,13 +3676,13 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   _renderHourlyForecast() {
     const hourlyForecast = this._getHourlyForecast();
-    const extremes = this._getTemperatureExtremes();
+    const extremes = this._getHourlyTemperatureExtremes();
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const secondaryColor = 'rgb(110, 190, 240)';
     const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（小时天气只有一个温度）
-    const tempData = this._generateTemperatureLine(hourlyForecast, extremes, true);
+    const tempData = this._generateHourlyTemperatureLine(hourlyForecast, extremes, true);
     
     // 使用组件实例ID + Canvas ID，避免多实例冲突
     const instanceId = this._getInstanceId();
@@ -3446,17 +3696,19 @@ class XiaoshiWeatherPadCard extends LitElement {
     });
     
     return html`
-      <div class="forecast-container" 
-           style="display: grid; grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); gap: 2px; cursor: grab;"
-           @mousedown=${(e) => this._handleMouseDown(e)}
-           @mouseleave=${(e) => this._handleMouseUp(e)}
-           @mouseup=${(e) => this._handleMouseUp(e)}
-           @mousemove=${(e) => this._handleMouseMove(e)}
-           @touchstart=${(e) => this._handleTouchStart(e)}
-           @touchend=${(e) => this._handleTouchEnd(e)}
-           @touchmove=${(e) => this._handleTouchMove(e)}>
-        <!-- 小时温度连接线 Canvas -->
-        <canvas class="temp-line-canvas temp-line-canvas-high" id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
+      <div class="forecast-container-wrapper" style="position: relative; overflow-x: auto; overflow-y: hidden;">
+        <div class="forecast-container" 
+             style="display: grid; grid-template-columns: repeat(${hourlyForecast.length}, minmax(50px, 1fr)); gap: 2px; cursor: grab; width: ${hourlyForecast.length * 50+(hourlyForecast.length-1)*2 }px;"
+             @mousedown=${(e) => this._handleMouseDown(e)}
+             @mouseleave=${(e) => this._handleMouseUp(e)}
+             @mouseup=${(e) => this._handleMouseUp(e)}
+             @mousemove=${(e) => this._handleMouseMove(e)}
+             @touchstart=${(e) => this._handleTouchStart(e)}
+             @touchend=${(e) => this._handleTouchEnd(e)}
+             @touchmove=${(e) => this._handleTouchMove(e)}>
+          <!-- 小时温度连接线 Canvas - 绝对定位覆盖整个可滚动区域 -->
+          <canvas class="temp-line-canvas temp-line-canvas-high temp-line-canvas-hourly" 
+                  id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
         
         ${hourlyForecast.map((hour, index) => {
           const timeStr = this._formatHourlyTime(hour.datetime);
@@ -3469,17 +3721,19 @@ class XiaoshiWeatherPadCard extends LitElement {
           // 计算温度位置（简化版）
           const { minTemp, maxTemp, range, allEqual } = extremes;
           const { BUTTON_HEIGHT_PX, CONTAINER_HEIGHT_PX } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
+          // 使用实际可用高度：容器高度减去按钮高度
           const availableHeight = CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX;
           
           let finalTopPosition;
           if (allEqual) {
             // 如果所有温度相等，将位置设置在中间
-            finalTopPosition = (CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX) / 2;
+            finalTopPosition = availableHeight / 2;
           } else {
             const unitPosition = range === 0 ? 0 : availableHeight / range;
             const tempValue = parseFloat(hour.native_temperature) || 0;
             const topPosition = (maxTemp - tempValue) * unitPosition;
-            finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX));
+            // 最高温度应该显示在顶部(position: 0)，最低温度在底部(position: availableHeight)
+            finalTopPosition = Math.max(0, Math.min(topPosition, availableHeight));
           }
           
           // 计算雨量矩形高度和位置
@@ -3552,6 +3806,8 @@ class XiaoshiWeatherPadCard extends LitElement {
           </div>
         `;
       })}
+        </div>
+      </div>
     `;
   }
 
@@ -3566,6 +3822,8 @@ class XiaoshiWeatherPadCard extends LitElement {
           </div>
         `;
       })}
+        </div>
+      </div>
     `;
   }
 
@@ -3596,12 +3854,14 @@ class XiaoshiWeatherPadCard extends LitElement {
           </div>
         `;
       })}
+        </div>
+      </div>
     `;
   }
 
   _renderHourlyWindInfo(hourlyForecast) {
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    const secondaryColor = 'rgb(110, 190, 240)';
     return html`
       ${hourlyForecast.map(hour => {
         const windSpeedRaw = hour.windscaleday || 0;
@@ -3626,6 +3886,8 @@ class XiaoshiWeatherPadCard extends LitElement {
           </div>
         `;
       })}
+        </div>
+      </div>
     `;
   }
 
@@ -3660,50 +3922,6 @@ class XiaoshiWeatherPadCard extends LitElement {
     return direction ? direction.icon : '⬇️';
   }
 
-  _renderWarningDetails() {
-    if (!this.showWarningDetails || !this.entity?.attributes?.warning) {
-      return '';
-    }
-
-    const warning = this.entity.attributes.warning;
-    const cardHeight = `${warning.length * 40}px`;
-    const warningColor = this._getWarningColor(warning);
-    const theme = this._evaluateTheme();
-    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-    return html`
-      <div class="warning-details-card" style="height: ${cardHeight}; background-color: ${backgroundColor};">
-        ${warning.map((warningItem, index) => {
-          const typeName = warningItem.typeName ?? "";
-          const level = warningItem.level ?? "";
-          const sender = warningItem.sender ?? "";
-          const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 10) : "";
-          const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 10) : "";
-          const text = warningItem.text ?? "";
-          const scrollDuration = Math.max(5, text.length * 0.3);
-
-          return html`
-            <div style="margin-bottom: 5px;">
-              <!-- 第一行：预警标题 -->
-              <div class="warning-title-line" style="color: ${warningColor};">
-                ${sender}: 【${typeName}】${level}预警&emsp;( ${startTime}至${endTime} )
-              </div>
-              
-              <!-- 第二行：预警文本滚动 -->
-              <div class="warning-text-container" style="color: ${textcolor}; ">
-                <div class="warning-text-scroll" style="animation-duration: ${scrollDuration}s;">
-                  <span>${text}</span>
-                </div>
-              </div>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-  }
-
-
-
   setConfig(config) {
     if (!config.entity) {
       throw new Error('需要指定天气实体');
@@ -3717,52 +3935,79 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   // 鼠标滑动处理方法
   _handleMouseDown(e) {
-    if (!e.target.closest('.forecast-container')) return;
+    const container = e.target.closest('.forecast-container');
+    const wrapper = e.target.closest('.forecast-container-wrapper');
+    if (!container || !wrapper) return;
+    
     this.isDragging = true;
-    this.startX = e.pageX - e.target.offsetLeft;
-    this.scrollLeft = e.target.scrollLeft;
-    e.target.style.cursor = 'grabbing';
+    this.startX = e.pageX - wrapper.offsetLeft;
+    this.scrollLeft = wrapper.scrollLeft;
+    this.scrollTarget = wrapper;
+    container.style.cursor = 'grabbing';
+    e.preventDefault();
   }
 
   _handleMouseUp(e) {
     this.isDragging = false;
-    if (e.target) {
-      e.target.style.cursor = 'grab';
+    if (this.scrollTarget) {
+      const container = this.scrollTarget.querySelector('.forecast-container');
+      if (container) {
+        container.style.cursor = 'grab';
+      }
+      this.scrollTarget = null;
     }
   }
 
   _handleMouseMove(e) {
-    if (!this.isDragging) return;
-    e.preventDefault();
-    const container = e.target.closest('.forecast-container');
-    if (!container) return;
+    if (!this.isDragging || !this.scrollTarget) return;
     
-    const x = e.pageX - container.offsetLeft;
-    const walk = (x - this.startX) * 2; // 滑动速度
-    container.scrollLeft = this.scrollLeft - walk;
+    e.preventDefault();
+    const x = e.pageX - this.scrollTarget.offsetLeft;
+    const walk = (x - this.startX) * 1.5; // 调整滑动速度
+    
+    // 使用requestAnimationFrame优化性能
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+    }
+    
+    this.rafId = requestAnimationFrame(() => {
+      this.scrollTarget.scrollLeft = this.scrollLeft - walk;
+    });
   }
 
   // 触摸滑动处理方法
   _handleTouchStart(e) {
-    if (!e.target.closest('.forecast-container')) return;
-    this.startX = e.touches[0].pageX - e.target.offsetLeft;
-    this.scrollLeft = e.target.scrollLeft;
+    const container = e.target.closest('.forecast-container');
+    const wrapper = e.target.closest('.forecast-container-wrapper');
+    if (!container || !wrapper) return;
+    
+    this.startX = e.touches[0].pageX - wrapper.offsetLeft;
+    this.scrollLeft = wrapper.scrollLeft;
+    this.scrollTarget = wrapper;
   }
 
   _handleTouchEnd(e) {
-    // 触摸结束，无需特殊处理
+    this.scrollTarget = null;
   }
 
   _handleTouchMove(e) {
-    const container = e.target.closest('.forecast-container');
-    if (!container) return;
+    if (!this.scrollTarget) return;
     
-    const x = e.touches[0].pageX - container.offsetLeft;
-    const walk = (x - this.startX) * 2; // 滑动速度
-    container.scrollLeft = this.scrollLeft - walk;
+    e.preventDefault();
+    const x = e.touches[0].pageX - this.scrollTarget.offsetLeft;
+    const walk = (x - this.startX) * 1.5; // 调整滑动速度
+    
+    // 使用requestAnimationFrame优化性能
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+    }
+    
+    this.rafId = requestAnimationFrame(() => {
+      this.scrollTarget.scrollLeft = this.scrollLeft - walk;
+    });
   }
 }
-customElements.define('xiaoshi-weather-pad-card', XiaoshiWeatherPadCard);
+customElements.define('xiaoshi-weather-pad-card1', XiaoshiWeatherPadCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push(
@@ -3772,7 +4017,7 @@ window.customCards.push(
     preview: true
   },
   {
-    type: "xiaoshi-weather-pad-card",
+    type: "xiaoshi-weather-pad-card1",
     name: "消逝天气卡片（平板端）",
     preview: true
   }
