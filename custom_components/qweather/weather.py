@@ -232,6 +232,7 @@ class HeFengWeather(WeatherEntity):
         self._daily_twice_forecast = None
         self._feelslike = None
         self._cloud = None
+        self._vis = None
         self._dew = None
         self._weather_warning = []
         self._attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
@@ -397,22 +398,23 @@ class HeFengWeather(WeatherEntity):
             weather_warning = [asdict(item) for item in self._weather_warning] if self._weather_warning else []
             
             attributes.update({
+                ATTR_CONDITION_CN: self._condition_cn,
                 "city": self._city,
                 "qweather_icon": self._icon,
+                "winddir": self._winddir,
+                "windscale": self._windscale,
+                "cloud_coverage": self._cloud,
+                "visibility": self._vis,
+                "dew_point": self._dew,
+                "feelslike": self._feelslike,
+                "sunrise": self._sun_data.get("sunrise", ""),
+                "sunset": self._sun_data.get("sunset", ""),
                 ATTR_UPDATE_TIME: self._updatetime,
-                ATTR_CONDITION_CN: self._condition_cn,
                 "aqis": self._aqi.get("aqi") if isinstance(self._aqi, dict) else None,
                 ATTR_AQI: self._aqi,
                 ATTR_DAILY_FORECAST: daily_forecast,
                 ATTR_HOURLY_FORECAST: hourly_forecast,
                 "warning": weather_warning,
-                "winddir": self._winddir,
-                "windscale": self._windscale,
-                "sunrise": self._sun_data.get("sunrise", ""),
-                "sunset": self._sun_data.get("sunset", ""),
-                "feelslike": self._feelslike,
-                "cloud": self._cloud,
-                "dew": self._dew,
             })
         return attributes
         
@@ -455,6 +457,7 @@ class HeFengWeather(WeatherEntity):
             self._icon = self._data._icon
             self._feelslike = self._data._feelslike
             self._cloud = self._data._cloud
+            self._vis = self._data._vis
             self._dew = self._data._dew
             self._updatetime = self._data._refreshtime
 
@@ -471,7 +474,7 @@ class Forecast:
     native_precipitation: float = None
     humidity: float = None
     native_pressure: float = None
-    cloud: int = None
+    cloud_coverage: int = None
     textnight: str = None
     winddirday: str = None
     winddirnight: str = None
@@ -493,7 +496,7 @@ class HourlyForecast:
     humidity: int = None
     probable_precipitation: int = None
     native_pressure: int = None
-    cloud: int = None
+    cloud_coverage: int = None
     windscaleday: str = None
 
 @dataclass
@@ -535,6 +538,7 @@ class WeatherData(object):
         self._city = None
         self._feelslike = None
         self._cloud = None
+        self._vis = None
         self._dew = None
              
         self._unique_id = unique_id
@@ -574,7 +578,7 @@ class WeatherData(object):
         self.geo_url = f"https://{self._host}/geo/v2/city/lookup?location={self._location}&lang=zh"
         self.now_url = f"https://{self._host}/v7/weather/now?location={self._location}&lang=zh"
         self.daily_url = f"https://{self._host}/v7/weather/10d?location={self._location}&lang=zh"
-        self.air_url = f"https://{self._host}/v7/air/now?location={self._location}&lang=zh"
+        self.air_url = f"https://{self._host}/airquality/v1/current/{self._location.split(',')[1].strip()}/{self._location.split(',')[0].strip()}?lang=zh"
         self.hourly_url = f"https://{self._host}/v7/weather/24h?location={self._location}&lang=zh"
         self.warning_url = f"https://{self._host}/v7/warning/now?location={self._location}&lang=zh"
         self.sun_url = f"https://{self._host}/v7/astronomy/sun?location={self._location}&date={self._todaydate}&lang=zh"
@@ -588,6 +592,61 @@ class WeatherData(object):
         """Return the current condition."""
         return CONDITION_MAP.get(self._current.get("icon"), EXCEPTIONAL)
         
+    def _convert_new_air_format_to_old(self, new_data):
+        """将新的空气质量API格式转换为旧格式"""
+        try:
+            # 获取当前时间作为发布时间
+            from datetime import datetime
+            current_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+08:00')
+            
+            # 获取污染物数据
+            pollutants = {p['code']: p['concentration']['value'] for p in new_data.get('pollutants', [])}
+            
+            # 获取US EPA AQI数据
+            us_epa_index = None
+            for index in new_data.get('indexes', []):
+                if index.get('code') == 'us-epa':
+                    us_epa_index = index
+                    break
+            
+            if not us_epa_index:
+                # 如果没有US EPA数据，使用第一个index
+                us_epa_index = new_data.get('indexes', [{}])[0]
+            
+            # 构建旧格式的数据
+            old_format = {
+                "pubTime": current_time,
+                "aqi": str(int(us_epa_index.get('aqi', 0))),
+                "level": str(us_epa_index.get('level', '1')),
+                "category": us_epa_index.get('category', '未知'),
+                "primary": us_epa_index.get('primaryPollutant', {}).get('code', 'NA').upper(),
+                "pm10": str(int(pollutants.get('pm10', 0))),
+                "pm2p5": str(int(pollutants.get('pm2p5', 0))),
+                "no2": str(int(pollutants.get('no2', 0))),
+                "so2": str(int(pollutants.get('so2', 0))), 
+                "co": str(float(pollutants.get('co', 0))),
+                "o3": str(int(pollutants.get('o3', 0)))
+            }
+            
+            _LOGGER.debug(f"空气质量数据转换完成: {old_format}")
+            return old_format
+            
+        except Exception as e:
+            _LOGGER.error(f"空气质量数据格式转换失败: {str(e)}")
+            return {
+                "pubTime": datetime.now().strftime('%Y-%m-%dT%H:%M:%S+08:00'),
+                "aqi": "0",
+                "level": "1", 
+                "category": "未知",
+                "primary": "NA",
+                "pm10": "0",
+                "pm2p5": "0", 
+                "no2": "0",
+                "so2": "0",
+                "co": "0",
+                "o3": "0"
+            }
+
     def validate_location(location):
         if not isinstance(location, str):
             return False
@@ -754,7 +813,7 @@ class WeatherData(object):
             tasks = []
             tasks.append(fetch_data(self.now_url, '_updatetime_now', '_current', min_intervals['now'], 'now', force_update))
             tasks.append(fetch_data(self.daily_url, '_updatetime_daily', '_daily_data', min_intervals['daily'], 'daily', force_update))
-            tasks.append(fetch_data(self.air_url, '_updatetime_air', '_air_data', min_intervals['air'], 'now', force_update))
+            tasks.append(fetch_data(self.air_url, '_updatetime_air', '_air_data', min_intervals['air'], None, force_update))
             tasks.append(fetch_data(self.hourly_url, '_updatetime_hourly', '_hourly_data', min_intervals['hourly'], 'hourly', force_update))
             tasks.append(fetch_data(self.warning_url, '_updatetime_warning', '_warning_data', min_intervals['warning'], 'warning', force_update))
             tasks.append(fetch_data(self.geo_url, '_updatetime_geo', '_geo_data', min_intervals['geo'], 'geo', force_update))
@@ -816,7 +875,7 @@ class WeatherData(object):
             self._native_wind_speed = float(self._current.get("windSpeed", 0))
             self._wind_bearing = float(self._current.get("wind360", 0))
             self._winddir = self._current.get("windDir", "")
-            self._windscale = self._current.get("windScale", 0)
+            self._windscale = int(self._current.get("windScale", 0))
             self._textnight = self._current.get("textNight", "")
             self._winddirday = self._current.get("windDirday", "")
             self._winddirnight = self._current.get("windDirNight", "")
@@ -824,8 +883,9 @@ class WeatherData(object):
             self._windscalenight = self._current.get("windScaleNight", "")
             self._iconnight = self._current.get("iconNight", "")
             self._feelslike = float(self._current.get("feelsLike", 0))
-            self._cloud = self._current.get("cloud", "")
-            self._dew = self._current.get("dew","")
+            self._cloud = int(self._current.get("cloud", 0))
+            self._vis = float(self._current.get("vis", 0))
+            self._dew = float(self._current.get("dew", 0))
             
         else:
             _LOGGER.error("实时天气数据格式不正确")
@@ -844,7 +904,13 @@ class WeatherData(object):
         
         # 修复：正确处理空气质量数据结构
         if isinstance(self._air_data, dict):
-            self._aqi = self._air_data
+            # 检查是否为新API格式
+            if 'indexes' in self._air_data and 'pollutants' in self._air_data:
+                # 新API格式转换
+                self._aqi = self._convert_new_air_format_to_old(self._air_data)
+            else:
+                # 旧API格式
+                self._aqi = self._air_data
         elif isinstance(self._air_data, list) and self._air_data:
             self._aqi = self._air_data[0]
         else:
@@ -881,7 +947,7 @@ class WeatherData(object):
                     windscaleday=daily.get("windScaleDay", ""),
                     windscalenight=daily.get("windScaleNight", ""),
                     iconnight=daily.get("iconNight", ""),
-                    cloud=daily.get("cloud", ""),
+                    cloud_coverage=int(daily.get("cloud", 0))
                 ))
         
         # 处理小时预报
@@ -912,8 +978,8 @@ class WeatherData(object):
                     humidity=float(hourly.get("humidity", 0)),
                     probable_precipitation=int(hourly.get("pop", 0)),
                     native_pressure=float(hourly.get("pressure", 0)),
-                    cloud=hourly.get("cloud"),
-                    windscaleday=hourly.get("windScale", 0)
+                    cloud_coverage=int(hourly.get("cloud", 0)) if hourly.get("cloud") is not None else None,
+                    windscaleday=int(hourly.get("windScale", 0)) if hourly.get("windScale") is not None else 0
                 ))
         
         # 处理白天/夜晚预报
