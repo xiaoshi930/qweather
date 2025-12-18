@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 2.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 2.4   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -296,7 +296,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   static get TEMPERATURE_CONSTANTS() {
     return {
       BUTTON_HEIGHT_VW: 3.4,        // 温度矩形高度（vw）
-      CONTAINER_HEIGHT_VW: 25,       // 温度容器总高度（vw）
+      CONTAINER_HEIGHT_VW: 22,       // 温度容器总高度（vw）
       FORECAST_COLUMNS: 9,          // 预报列数
     };
   }
@@ -332,6 +332,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         position: relative;
         border-radius: 3vw;
         padding: 1.6vw;
+        padding-bottom: 0.6vw;
         font-family: sans-serif;
         overflow: hidden;
       }
@@ -521,7 +522,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /*9日天气部分 温度区域*/
       .forecast-temp-container {
         position: relative;
-        height: 25vw;
+        height: 22vw;
         margin-top: 0;
         margin-bottom: 0;
       }
@@ -547,7 +548,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       /*9日天气部分 雨量标签*/
       .forecast-rainfall {
-        background: rgba(80, 177, 200, 0.8);
+        background: rgba(80, 177, 200);
         color: white;
         font-size: 1.4vw;
         font-weight: bold;
@@ -634,12 +635,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .temp-line-canvas-high {
         top: 7.7vw;
-        height: 25vw; 
+        height: 22vw; 
       }
 
       .temp-line-canvas-low {
         top: 7.7vw;
-        height: 25vw; 
+        height: 22vw; 
       }
 
       .temp-curve-high {
@@ -815,6 +816,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         0% { transform: translateX(0); }
         100% { transform: translateX(-100%); }
       }
+
+      .update-time { 
+        display: flex;
+        align-items: flex-end;
+        justify-content: start;
+        margin-bottom: -1vw;
+        margin-top: 2vw;
+        margin-left: 1vw;
+        font-size: 2vw;
+        height: 2vw;
+      }
+
     `;
   }
 
@@ -1305,6 +1318,76 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return "#FFA726"; // 默认颜色
   }
 
+   _getRelativeTime(updateTime) {
+    if (!updateTime || updateTime === '未知时间') {
+      return '未知时间';
+    }
+    
+    try {
+      // 解析更新时间，支持多种格式
+      let updateDate;
+      if (updateTime.includes(' ')) {
+        // 格式: "2025-12-18 20:28"
+        const [datePart, timePart] = updateTime.split(' ');
+        updateDate = new Date(`${datePart}T${timePart}:00`);
+      } else if (updateTime.includes('T')) {
+        // 格式: "2025-12-18T20:28:00"
+        updateDate = new Date(updateTime);
+      } else {
+        return updateTime; // 无法解析，返回原始值
+      }
+      
+      const now = new Date();
+      const diffMs = now - updateDate;
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      let relativeTime = '';
+      if (diffMinutes < 1) {
+        relativeTime = '刚刚';
+      } else if (diffMinutes < 60) {
+        relativeTime = `${diffMinutes}分钟前`;
+      } else if (diffHours < 24) {
+        relativeTime = `${diffHours}小时前`;
+      } else {
+        relativeTime = `${diffDays}天前`;
+      }
+      
+      return `数据更新时间：${updateTime} ( ${relativeTime} )`;
+    } catch (error) {
+      console.warn('时间解析错误:', error);
+      return `数据更新时间：${updateTime}`;
+    }
+  }
+
+   _getAqiCategoryHtml() {
+    const category = this.entity.attributes?.aqi?.category;
+    if (!category) return '';
+    
+    let color = '';
+    switch(category) {
+      case '优':
+        color = '#4CAF50'; // 绿色
+        break;
+      case '良':
+        color = '#FFC107'; // 黄色
+        break;
+      case '轻度污染':
+        color = '#FF9800'; // 橙色
+        break;
+      case '中度污染':
+      case '重度污染':
+      case '严重污染':
+        color = '#F44336'; // 红色
+        break;
+      default:
+        color = '#9E9E9E'; // 灰色（其他未知类别）
+    }
+    
+    return html`<span style="color: ${color}; font-weight: bold;"> ${category}</span>`;
+  } 
+
   render() {
     if (!this.entity || this.entity.state === 'unavailable') {
       return html`<div class="unavailable"></div>`;
@@ -1316,7 +1399,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
+    const pressure = this.entity.attributes?.pressure || 0;
+    const visibility = this.entity.attributes?.visibility || 0;
     const city = this.entity.attributes?.city || '未知城市';
+    const update_time = this.entity.attributes?.update_time || '未知时间';
     const warning = this.entity.attributes?.warning || [];
     const theme = this._evaluateTheme();
     const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
@@ -1345,7 +1431,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                   ${hasWarning ? 
                     html`<span class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningDetails()}">⚠ ${warning.length}</span>` : ''}
                 </div>
-                <div class="weather-info" style="color: ${secondaryColor};">${condition}   ${windSpeed} km/h</div>
+                <div class="weather-info">
+                    <span style="color: ${secondaryColor};">${condition}  
+                      ${windSpeed}<font size="0.4vw"><b>km/h </b></font> 
+                      ${pressure}<font size="0.4vw"><b>hPa </b></font>
+                      ${visibility}<font size="0.4vw"><b>km </b></font>
+                    </span>
+                    ${this._getAqiCategoryHtml()}
+                </div>
               </div>
             </div>
             <!-- 城市信息 - 放在头部右侧 -->
@@ -1367,6 +1460,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         
         <!-- 预警详情 - 在最下方显示 -->
         ${this.showWarningDetails && hasWarning ? this._renderWarningDetails() : ''}
+
+        <div class="update-time">
+          ${this._getRelativeTime(update_time)}
+        </div>
       </div>
     `;
   }
@@ -1422,8 +1519,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const rainfall = parseFloat(day.native_precipitation) || 0;
           
           // 计算雨量矩形高度和位置
+          
+          const {CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
           const RAINFALL_MAX = 20; // 最大雨量20mm
-          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25); // 最大高度21.6vw（到日期下面）
+          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+5, CONTAINER_HEIGHT_VW+5); // 最大高度21.6vw（到日期下面）
 
           return html`
             <div class="forecast-day" style="background: ${backgroundColor};">
@@ -1455,7 +1554,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                 
                 <!-- 雨量填充矩形 -->
                 ${rainfall > 0 ? html`
-                  <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${0.3+rainfall / RAINFALL_MAX}"></div>
+                  <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${rainfall / RAINFALL_MAX}"></div>
                 ` : ''}
               </div>
               <div class="forecast-temp-null"></div>
@@ -1545,8 +1644,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             }
             
             // 计算雨量矩形高度和位置
-            const RAINFALL_MAX = 2; // 最大雨量2mm
-            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 25, 25);
+            const RAINFALL_MAX = 2; // 最大雨量20mm
+            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+5, CONTAINER_HEIGHT_VW+5); // 最大高度21.6vw（到日期下面）
+
 
             return html`
               <div class="forecast-day" style="background: ${backgroundColor};">
@@ -1572,7 +1672,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                   
                   <!-- 雨量填充矩形 -->
                   ${rainfall > 0 ? html`
-                    <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${0.3+rainfall / RAINFALL_MAX}"></div>
+                    <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${rainfall / RAINFALL_MAX}"></div>
                   ` : ''}
                 </div>
                 <div class="forecast-temp-null"></div>
@@ -1695,15 +1795,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _getWindDirectionIcon(bearing) {
     // 0是北风，按顺时针方向增加
     const directions = [
-      { range: [337.5, 360], icon: '⬆️', name: '北' },    // 337.5-360度
-      { range: [0, 22.5], icon: '⬆️', name: '北' },        // 0-22.5度
-      { range: [22.5, 67.5], icon: '↗️', name: '东北' },    // 22.5-67.5度
-      { range: [67.5, 112.5], icon: '➡️', name: '东' },     // 67.5-112.5度
-      { range: [112.5, 157.5], icon: '↘️', name: '东南' },   // 112.5-157.5度
-      { range: [157.5, 202.5], icon: '⬇️', name: '南' },     // 157.5-202.5度
-      { range: [202.5, 247.5], icon: '↙️', name: '西南' },   // 202.5-247.5度
-      { range: [247.5, 292.5], icon: '⬅️', name: '西' },     // 247.5-292.5度
-      { range: [292.5, 337.5], icon: '↖️', name: '西北' }    // 292.5-337.5度
+      { range: [337.5, 360], icon: '↑', name: '北' },    // 337.5-360度
+      { range: [0, 22.5], icon: '↑', name: '北' },        // 0-22.5度
+      { range: [22.5, 67.5], icon: '↗', name: '东北' },    // 22.5-67.5度
+      { range: [67.5, 112.5], icon: '→', name: '东' },     // 67.5-112.5度
+      { range: [112.5, 157.5], icon: '↘', name: '东南' },   // 112.5-157.5度
+      { range: [157.5, 202.5], icon: '↓', name: '南' },     // 157.5-202.5度
+      { range: [202.5, 247.5], icon: '↙', name: '西南' },   // 202.5-247.5度
+      { range: [247.5, 292.5], icon: '←', name: '西' },     // 247.5-292.5度
+      { range: [292.5, 337.5], icon: '↖', name: '西北' }    // 292.5-337.5度
     ];
 
     const direction = directions.find(dir => {
@@ -1720,7 +1820,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       return false;
     });
 
-    return direction ? direction.icon : '⬇️';
+    return direction ? direction.icon : '↓';
   }
 
   _renderWarningDetails() {
@@ -3237,15 +3337,15 @@ class XiaoshiWeatherPadCard extends LitElement {
   _getWindDirectionIcon(bearing) {
     // 0是北风，按顺时针方向增加
     const directions = [
-      { range: [337.5, 360], icon: '⬆️', name: '北' },    // 337.5-360度
-      { range: [0, 22.5], icon: '⬆️', name: '北' },        // 0-22.5度
-      { range: [22.5, 67.5], icon: '↗️', name: '东北' },    // 22.5-67.5度
-      { range: [67.5, 112.5], icon: '➡️', name: '东' },     // 67.5-112.5度
-      { range: [112.5, 157.5], icon: '↘️', name: '东南' },   // 112.5-157.5度
-      { range: [157.5, 202.5], icon: '⬇️', name: '南' },     // 157.5-202.5度
-      { range: [202.5, 247.5], icon: '↙️', name: '西南' },   // 202.5-247.5度
-      { range: [247.5, 292.5], icon: '⬅️', name: '西' },     // 247.5-292.5度
-      { range: [292.5, 337.5], icon: '↖️', name: '西北' }    // 292.5-337.5度
+      { range: [337.5, 360], icon: '↑', name: '北' },    // 337.5-360度
+      { range: [0, 22.5], icon: '↑', name: '北' },        // 0-22.5度
+      { range: [22.5, 67.5], icon: '↗', name: '东北' },    // 22.5-67.5度
+      { range: [67.5, 112.5], icon: '→', name: '东' },     // 67.5-112.5度
+      { range: [112.5, 157.5], icon: '↘', name: '东南' },   // 112.5-157.5度
+      { range: [157.5, 202.5], icon: '↓', name: '南' },     // 157.5-202.5度
+      { range: [202.5, 247.5], icon: '↙', name: '西南' },   // 202.5-247.5度
+      { range: [247.5, 292.5], icon: '←', name: '西' },     // 247.5-292.5度
+      { range: [292.5, 337.5], icon: '↖', name: '西北' }    // 292.5-337.5度
     ];
 
     const direction = directions.find(dir => {
@@ -3262,7 +3362,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       return false;
     });
 
-    return direction ? direction.icon : '⬇️';
+    return direction ? direction.icon : '↓';
   }
 
   setConfig(config) {
@@ -4588,15 +4688,15 @@ class XiaoshiHourlyWeatherCard extends LitElement {
   _getWindDirectionIcon(bearing) {
     // 0是北风，按顺时针方向增加
     const directions = [
-      { range: [337.5, 360], icon: '⬆️', name: '北' },    // 337.5-360度
-      { range: [0, 22.5], icon: '⬆️', name: '北' },        // 0-22.5度
-      { range: [22.5, 67.5], icon: '↗️', name: '东北' },    // 22.5-67.5度
-      { range: [67.5, 112.5], icon: '➡️', name: '东' },     // 67.5-112.5度
-      { range: [112.5, 157.5], icon: '↘️', name: '东南' },   // 112.5-157.5度
-      { range: [157.5, 202.5], icon: '⬇️', name: '南' },     // 157.5-202.5度
-      { range: [202.5, 247.5], icon: '↙️', name: '西南' },   // 202.5-247.5度
-      { range: [247.5, 292.5], icon: '⬅️', name: '西' },     // 247.5-292.5度
-      { range: [292.5, 337.5], icon: '↖️', name: '西北' }    // 292.5-337.5度
+      { range: [337.5, 360], icon: '↑', name: '北' },    // 337.5-360度
+      { range: [0, 22.5], icon: '↑', name: '北' },        // 0-22.5度
+      { range: [22.5, 67.5], icon: '↗', name: '东北' },    // 22.5-67.5度
+      { range: [67.5, 112.5], icon: '→', name: '东' },     // 67.5-112.5度
+      { range: [112.5, 157.5], icon: '↘', name: '东南' },   // 112.5-157.5度
+      { range: [157.5, 202.5], icon: '↓', name: '南' },     // 157.5-202.5度
+      { range: [202.5, 247.5], icon: '↙', name: '西南' },   // 202.5-247.5度
+      { range: [247.5, 292.5], icon: '←', name: '西' },     // 247.5-292.5度
+      { range: [292.5, 337.5], icon: '↖', name: '西北' }    // 292.5-337.5度
     ];
 
     const direction = directions.find(dir => {
@@ -4613,7 +4713,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       return false;
     });
 
-    return direction ? direction.icon : '⬇️';
+    return direction ? direction.icon : '↓';
   }
 
 
