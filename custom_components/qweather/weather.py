@@ -979,7 +979,7 @@ class WeatherData(object):
                     probable_precipitation=int(hourly.get("pop", 0)),
                     native_pressure=float(hourly.get("pressure", 0)),
                     cloud_coverage=int(hourly.get("cloud", 0)) if hourly.get("cloud") is not None else None,
-                    windscaleday=int(hourly.get("windScale", 0)) if hourly.get("windScale") is not None else 0
+                    windscaleday=str(hourly.get("windScale", "0")) if hourly.get("windScale") is not None else "0"
                 ))
         
         # 处理白天/夜晚预报
