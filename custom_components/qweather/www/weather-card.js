@@ -343,7 +343,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .main-content {
         position: relative;
-        z-index: 2;
       }
 
       /*天气头部*/
@@ -443,7 +442,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-size: 2vw;
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 3;
+        z-index: 4;
       }
 
       /*9日天气部分*/
@@ -493,7 +492,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         grid-row: 1;
         text-align: center;
         position: relative;
-        z-index: 2;
         border-radius: 8px;
         padding: 1vw;
         position: relative;
@@ -537,13 +535,25 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       .forecast-rainfall-container {
         text-align: center;
         position: relative;
-        z-index: 3;
         display: flex;
         justify-content: center;
         align-items: center;
         height: 2.5vw;
         margin-top: -2vw;
         margin-bottom: 0;
+      }
+ 
+      /*雨量填充矩形*/
+      .rainfall-fill {
+        position: absolute;
+        left: 0;
+        right: 0;
+        background: rgba(80, 177, 200, 0.8);
+        border-radius: 1.2vw;
+        margin: 0 -1vw;
+        bottom: -3vw;
+        transition: all 0.3s ease;
+        z-index: 1;
       }
 
       /*9日天气部分 雨量标签*/
@@ -561,26 +571,13 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-      }
- 
-      /*雨量填充矩形*/
-      .rainfall-fill {
-        position: absolute;
-        left: 0;
-        right: 0;
-        background: rgba(80, 177, 200, 0.8);
-        border-radius: 1.2vw;
-        z-index: 0;
-        margin: 0 -1vw;
-        bottom: -3vw;
-        transition: all 0.3s ease;
+        z-index: 2;
       }
 
       /*9日天气部分 图标*/
       .forecast-icon-container {
         text-align: center;
         position: relative;
-        z-index: 2;
       }
 
       /*9日天气部分 图标*/
@@ -603,7 +600,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         grid-row: 4;
         text-align: center;
         position: relative;
-        z-index: 2;
         height: 3vw;
         margin-top: -1vw;
       }
@@ -630,7 +626,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         left: 0;
         width: 100%;
         pointer-events: none;
-        z-index: 2;
+        z-index: 3;
       }
 
       .temp-line-canvas-high {
@@ -659,7 +655,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-size: 2.2vw;
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 3;
+        z-index: 5;
       }
 
       .temp-curve-low {
@@ -677,7 +673,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         color: white;
         font-size: 2.2vw;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 2;
+        z-index: 4;
       }
 
       /* 圆点模式样式 */
@@ -719,7 +715,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-weight: 600;
         white-space: nowrap;
         text-shadow: 0 1px 2px rgba(123, 123, 123, 0.3);
-        z-index: 4;
       }
 
       .dot-mode .temp-curve-high .temp-text {
@@ -1216,8 +1211,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       const rect = canvas.getBoundingClientRect();
       
       // 设置Canvas实际尺寸
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      canvas.width = rect.width *3;
+      canvas.height = rect.height *3;
       
       if (points.length < 2) {
         return;
@@ -1228,7 +1223,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       
       // 设置线条样式
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2; // 固定线宽
+      ctx.lineWidth = 6; // 固定线宽
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
@@ -1260,7 +1255,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
       
       // 使用更保守的样条算法，减少曲线过度弯曲
-      const tension = 0.15; // 减小张力系数，避免过度弯曲
+      const tension = 0.2; // 减小张力系数，避免过度弯曲
       
       for (let i = 0; i < canvasPoints.length - 1; i++) {
         const p0 = canvasPoints[Math.max(0, i - 1)];
@@ -1491,8 +1486,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34, 0.8)');
-        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243, 0.8)');
+        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34)');
+        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243)');
       }, 50);
     });
     
@@ -1522,7 +1517,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           
           const {CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
           const RAINFALL_MAX = 20; // 最大雨量20mm
-          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+5, CONTAINER_HEIGHT_VW+5); // 最大高度21.6vw（到日期下面）
+          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+4, CONTAINER_HEIGHT_VW+4); // 最大高度21.6vw（到日期下面）
 
           return html`
             <div class="forecast-day" style="background: ${backgroundColor};">
@@ -1602,7 +1597,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(156, 39, 176, 0.8)');
+        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(156, 39, 176)');
       }, 50);
     });
     
@@ -1645,7 +1640,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             
             // 计算雨量矩形高度和位置
             const RAINFALL_MAX = 2; // 最大雨量20mm
-            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+5, CONTAINER_HEIGHT_VW+5); // 最大高度21.6vw（到日期下面）
+            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+4, CONTAINER_HEIGHT_VW+4); // 最大高度21.6vw（到日期下面）
 
 
             return html`
@@ -2223,7 +2218,6 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .main-content {
         position: relative;
-        z-index: 2;
       }
 
       /*天气头部*/
@@ -2318,7 +2312,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         grid-row: 1;
         text-align: center;
         position: relative;
-        z-index: 2;
         border-radius: 8px;
         padding: 5px;
         position: relative;
@@ -2362,7 +2355,6 @@ class XiaoshiWeatherPadCard extends LitElement {
       .forecast-rainfall-container {
         text-align: center;
         position: relative;
-        z-index: 3;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -2373,7 +2365,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*9日天气部分 雨量标签*/
       .forecast-rainfall {
-        background: rgba(80, 177, 200, 0.8);
+        background: rgba(80, 177, 200);
         color: white;
         font-size: 7px;
         font-weight: bold;
@@ -2386,6 +2378,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
+        z-index: 2;
       }
  
       /*雨量填充矩形*/
@@ -2395,7 +2388,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         right: 0;
         background: rgba(80, 177, 200, 0.8);
         border-radius: 6px;
-        z-index: 0;
+        z-index: 1;
         margin: 0 -5px;
         bottom: -15px;
         transition: all 0.3s ease;
@@ -2405,7 +2398,6 @@ class XiaoshiWeatherPadCard extends LitElement {
       .forecast-icon-container {
         text-align: center;
         position: relative;
-        z-index: 2;
       }
 
       /*9日天气部分 图标*/
@@ -2428,7 +2420,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         grid-row: 4;
         text-align: center;
         position: relative;
-        z-index: 2;
         height: 15px;
         margin-top: -5px;
       }
@@ -2455,7 +2446,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         left: 0;
         width: 100%;
         pointer-events: none;
-        z-index: 2;
+        z-index: 3;
       }
 
       .temp-line-canvas-high {
@@ -2476,7 +2467,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         height: 125px !important;
         width: 100% !important;
         pointer-events: none !important;
-        z-index: 2 !important;
+        z-index: 3;
       }
 
       .temp-curve-high {
@@ -2495,7 +2486,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-size: 12px;
         font-weight: 600;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 3;
+        z-index: 5;
       }
 
       .temp-curve-low {
@@ -2514,7 +2505,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-size: 12px;
         font-weight: 600;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 2;
+        z-index: 4;
       }
 
       /* 圆点模式样式 */
@@ -2564,7 +2555,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-weight: 600;
         white-space: nowrap;
         text-shadow: 0 1px 2px rgba(123, 123, 123, 0.3);
-        z-index: 4;
       }
 
       .dot-mode .temp-curve-high .temp-text {
@@ -2984,8 +2974,8 @@ class XiaoshiWeatherPadCard extends LitElement {
         targetWidth = Math.max(rect.width, contentWidth);
       }
       
-      canvas.width = targetWidth;
-      canvas.height = rect.height;
+      canvas.width = targetWidth*3;
+      canvas.height = rect.height*3;
       
       if (points.length < 2) {
         return;
@@ -2996,7 +2986,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       
       // 设置线条样式
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2; // 固定线宽
+      ctx.lineWidth = 6; // 固定线宽
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
@@ -3028,7 +3018,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
       
       // 使用更保守的样条算法，减少曲线过度弯曲
-      const tension = 0.15; // 减小张力系数，避免过度弯曲
+      const tension = 0.2; // 减小张力系数，避免过度弯曲
       
       for (let i = 0; i < canvasPoints.length - 1; i++) {
         const p0 = canvasPoints[Math.max(0, i - 1)];
@@ -3126,8 +3116,8 @@ class XiaoshiWeatherPadCard extends LitElement {
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34, 0.8)');
-        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243, 0.8)');
+        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34)');
+        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243)');
       }, 50);
     });
     
@@ -3169,10 +3159,10 @@ class XiaoshiWeatherPadCard extends LitElement {
               <div class="forecast-temp-container">
                 ${this.config.visual_style === 'dot' ? html`
                   <!-- 圆点模式 -->
-                  <div class="temp-curve-high" style="top: ${tempBounds.highTop + 8.75}px">
+                  <div class="temp-curve-high" style="top: ${tempBounds.highTop + 8.5}px">
                     <div class="temp-text">${highTemp}°</div>
                   </div>
-                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop + 8.75}px">
+                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop + 8.5}px">
                     <div class="temp-text">${lowTemp}°</div>
                   </div>
                 ` : html`
@@ -3499,7 +3489,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
       .main-content {
         position: relative;
-        z-index: 2;
       }
 
       /*天气头部*/
@@ -3578,7 +3567,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-size: 10px;
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        z-index: 3;
+        z-index: 4;
       }
 
       /*9日天气部分*/
@@ -3594,7 +3583,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         grid-row: 1;
         text-align: center;
         position: relative;
-        z-index: 2;
         border-radius: 8px;
         padding: 5px;
         position: relative;
@@ -3638,7 +3626,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       .forecast-rainfall-container {
         text-align: center;
         position: relative;
-        z-index: 3;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -3649,7 +3636,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
       /*9日天气部分 雨量标签*/
       .forecast-rainfall {
-        background: rgba(80, 177, 200, 0.8);
+        background: rgba(80, 177, 200);
         color: white;
         font-size: 7px;
         font-weight: bold;
@@ -3662,6 +3649,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
+        z-index: 2;
       }
  
       /*雨量填充矩形*/
@@ -3671,7 +3659,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         right: 0;
         background: rgba(80, 177, 200, 0.8);
         border-radius: 6px;
-        z-index: 0;
+        z-index: 1;
         margin: 0 -5px;
         bottom: -15px;
         transition: all 0.3s ease;
@@ -3681,7 +3669,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       .forecast-icon-container {
         text-align: center;
         position: relative;
-        z-index: 2;
       }
 
       /*9日天气部分 图标*/
@@ -3704,7 +3691,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         grid-row: 4;
         text-align: center;
         position: relative;
-        z-index: 2;
         height: 15px;
         margin-top: -5px;
       }
@@ -3731,28 +3717,28 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         left: 0;
         width: 100%;
         pointer-events: none;
-        z-index: 2;
+        z-index: 3;
       }
 
       .temp-line-canvas-high {
-        top: 38.5px;
+        top: 37.5px;
         height: 125px; 
       }
 
       .temp-line-canvas-low {
-        top: 38.5px;
+        top: 37.5px;
         height: 125px; 
       }
 
       .temp-line-canvas-hourly {
         position: absolute !important;
-        top: 38.5px !important;
+        top: 37.5px !important;
         left: 0 !important;
         right: 0 !important;
         height: 125px !important;
         width: 100% !important;
         pointer-events: none !important;
-        z-index: 2 !important;
+        z-index: 2;
       }
 
       /* 圆点模式样式 */
@@ -3798,7 +3784,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-weight: 600;
         white-space: nowrap;
         text-shadow: 0 1px 2px rgba(123, 123, 123, 0.3);
-        z-index: 4;
       }
 
       .dot-mode .temp-curve-hourly .temp-text {
@@ -4294,7 +4279,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(156, 39, 176, 0.8)');
+        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(156, 39, 176)');
       }, 50);
     });
     
@@ -4427,8 +4412,8 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         targetWidth = Math.max(rect.width, contentWidth);
       }
       
-      canvas.width = targetWidth;
-      canvas.height = rect.height;
+      canvas.width = rect.width *3;
+      canvas.height = rect.height *3;
       
       if (points.length < 2) {
         return;
@@ -4439,7 +4424,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       
       // 设置线条样式
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2; // 固定线宽
+      ctx.lineWidth = 6; // 固定线宽
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
@@ -4471,7 +4456,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
       
       // 使用更保守的样条算法，减少曲线过度弯曲
-      const tension = 0.15; // 减小张力系数，避免过度弯曲
+      const tension = 0.2; // 减小张力系数，避免过度弯曲
       
       for (let i = 0; i < canvasPoints.length - 1; i++) {
         const p0 = canvasPoints[Math.max(0, i - 1)];
@@ -4531,11 +4516,13 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const dpr = window.devicePixelRatio || 1;
     
     // 设置canvas实际尺寸
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-    canvas.style.width = canvas.offsetWidth + 'px';
-    canvas.style.height = canvas.offsetHeight + 'px';
-    
+    canvas.width = canvas.offsetWidth * 3;
+    canvas.height = canvas.offsetHeight * 3;
+    // canvas.style.width = canvas.offsetWidth + 'px';
+    // canvas.style.height = canvas.offsetHeight + 'px';
+
+
+
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
 
@@ -4552,7 +4539,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
     // 绘制温度曲线
     ctx.strokeStyle = '#FFD54F';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
