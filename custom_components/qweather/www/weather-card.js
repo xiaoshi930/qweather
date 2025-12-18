@@ -1433,9 +1433,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                 </div>
                 <div class="weather-info">
                     <span style="color: ${secondaryColor};">${condition}  
-                      ${windSpeed}<font size="0.4vw"><b>km/h </b></font> 
-                      ${pressure}<font size="0.4vw"><b>hPa </b></font>
-                      ${visibility}<font size="0.4vw"><b>km </b></font>
+                      ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                      ${pressure}<span style="font-size: 0.6em;">hPa </span>
+                      ${visibility}<span style="font-size: 0.6em;">km </span>
                     </span>
                     ${this._getAqiCategoryHtml()}
                 </div>
