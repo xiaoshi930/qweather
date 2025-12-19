@@ -594,24 +594,39 @@ class WeatherData(object):
         
     def _convert_new_air_format_to_old(self, new_data):
         """将新的空气质量API格式转换为旧格式"""
+        # 首先检查输入数据是否有效
+        if not new_data or not isinstance(new_data, dict):
+            _LOGGER.debug("空气质量数据为空或格式不正确")
+            return None
+            
         try:
             # 获取当前时间作为发布时间
             from datetime import datetime
             current_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+08:00')
             
             # 获取污染物数据
-            pollutants = {p['code']: p['concentration']['value'] for p in new_data.get('pollutants', [])}
+            pollutants = {}
+            for p in new_data.get('pollutants', []):
+                if isinstance(p, dict) and 'code' in p and 'concentration' in p and isinstance(p['concentration'], dict):
+                    pollutants[p['code']] = p['concentration'].get('value', 0)
             
             # 获取US EPA AQI数据
             us_epa_index = None
             for index in new_data.get('indexes', []):
-                if index.get('code') == 'us-epa':
+                if isinstance(index, dict) and index.get('code') == 'us-epa':
                     us_epa_index = index
                     break
             
-            if not us_epa_index:
+            if not us_epa_index and new_data.get('indexes'):
                 # 如果没有US EPA数据，使用第一个index
-                us_epa_index = new_data.get('indexes', [{}])[0]
+                first_index = new_data['indexes'][0]
+                if isinstance(first_index, dict):
+                    us_epa_index = first_index
+            
+            # 如果仍然没有有效的index数据，返回None
+            if not us_epa_index:
+                _LOGGER.debug("未找到有效的空气质量指数数据")
+                return None
             
             # 构建旧格式的数据
             old_format = {
@@ -619,7 +634,8 @@ class WeatherData(object):
                 "aqi": str(int(us_epa_index.get('aqi', 0))),
                 "level": str(us_epa_index.get('level', '1')),
                 "category": us_epa_index.get('category', '未知'),
-                "primary": us_epa_index.get('primaryPollutant', {}).get('code', 'NA').upper(),
+                "primary": (us_epa_index.get('primaryPollutant', {}).get('code', 'NA').upper() 
+                           if isinstance(us_epa_index.get('primaryPollutant'), dict) else 'NA'),
                 "pm10": str(int(pollutants.get('pm10', 0))),
                 "pm2p5": str(int(pollutants.get('pm2p5', 0))),
                 "no2": str(int(pollutants.get('no2', 0))),
@@ -633,19 +649,7 @@ class WeatherData(object):
             
         except Exception as e:
             _LOGGER.error(f"空气质量数据格式转换失败: {str(e)}")
-            return {
-                "pubTime": datetime.now().strftime('%Y-%m-%dT%H:%M:%S+08:00'),
-                "aqi": "0",
-                "level": "1", 
-                "category": "未知",
-                "primary": "NA",
-                "pm10": "0",
-                "pm2p5": "0", 
-                "no2": "0",
-                "so2": "0",
-                "co": "0",
-                "o3": "0"
-            }
+            return None
 
     def validate_location(location):
         if not isinstance(location, str):
@@ -779,6 +783,13 @@ class WeatherData(object):
             
             try:
                 async with session.get(url) as response:
+                    # 处理空气质量API返回400的情况
+                    if url == self.air_url and response.status == 400:
+                        _LOGGER.debug("空气质量API返回400，说明当前地址不支持空气质量数据，设置为空数据")
+                        setattr(self, data_attr, None)
+                        setattr(self, update_attr, current_time)
+                        return True
+                    
                     response.raise_for_status()
                     json_data = await response.json()
                     if url == self.now_url and 'code' in json_data:
@@ -903,7 +914,11 @@ class WeatherData(object):
         self._refreshtime = dt_util.as_local(now).strftime('%Y-%m-%d %H:%M')
         
         # 修复：正确处理空气质量数据结构
-        if isinstance(self._air_data, dict):
+        if self._air_data is None:
+            # 空气质量API返回400或不支持时，设置为空字典
+            self._aqi = {}
+            _LOGGER.debug("空气质量数据为空，可能当前地址不支持空气质量监测")
+        elif isinstance(self._air_data, dict):
             # 检查是否为新API格式
             if 'indexes' in self._air_data and 'pollutants' in self._air_data:
                 # 新API格式转换
@@ -915,7 +930,7 @@ class WeatherData(object):
             self._aqi = self._air_data[0]
         else:
             self._aqi = {}
-            _LOGGER.warning("空气质量数据结构异常")
+            _LOGGER.debug("空气质量数据为空")
         
         # 处理每日预报
         self._daily_forecast = []
@@ -1011,7 +1026,7 @@ class WeatherData(object):
                 warning_list = self._warning_data
             else:
                 warning_list = []
-                _LOGGER.warning("预警数据结构异常")
+                _LOGGER.debug("无预警数据")
             
             for warningItem in warning_list:
                 self._weather_warning.append(WarningData(
