@@ -19,6 +19,12 @@ from .const import (
     CONF_STARTTIME,
     CONF_UPDATE_INTERVAL,
     CONF_NO_UPDATE_AT_NIGHT,
+    CONF_ENABLE_HOURLY,
+    CONF_ENABLE_WARNING,
+    CONF_ENABLE_AIR,
+    CONF_ENABLE_YESTERDAY,
+    CONF_ENABLE_SUN,
+    CONF_ENABLE_INDICES,
     )
 import voluptuous as vol
 
@@ -231,6 +237,51 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # 保存更新周期设置
             self.user_input.update(user_input)
             
+            # 进入第5步：API功能选择
+            return await self.async_step_api_features()
+        
+        return await self._show_update_interval_form(user_input)
+    
+    async def async_step_api_features(self, user_input=None):
+        """第5步：选择API功能"""
+        self._errors = {}
+        
+        if user_input is not None:
+            # 保存API功能设置
+            self.user_input.update(user_input)
+            
+            # 创建配置条目
+            await self.async_set_unique_id(f"qweather_{self.user_input[CONF_NAME].replace(' ', '_')}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=self.user_input[CONF_NAME],
+                data=self.user_input
+            )
+    
+    async def _show_update_interval_form(self, user_input=None):
+        """显示第4步表单：设置更新周期"""
+        if user_input is None:
+            user_input = {}
+        
+        data_schema = vol.Schema({
+            vol.Required(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
+            vol.Required(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
+        })
+        
+        return self.async_show_form(
+            step_id="update_interval",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
+    
+    async def async_step_api_features(self, user_input=None):
+        """第5步：选择API功能"""
+        self._errors = {}
+        
+        if user_input is not None:
+            # 保存API功能设置
+            self.user_input.update(user_input)
+            
             # 创建配置条目
             await self.async_set_unique_id(f"qweather_{self.user_input[CONF_NAME].replace(' ', '_')}")
             self._abort_if_unique_id_configured()
@@ -239,7 +290,27 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data=self.user_input
             )
         
-        return await self._show_update_interval_form(user_input)
+        return await self._show_api_features_form(user_input)
+    
+    async def _show_api_features_form(self, user_input=None):
+        """显示第5步表单：选择API功能"""
+        if user_input is None:
+            user_input = {}
+        
+        data_schema = vol.Schema({
+            vol.Required(CONF_ENABLE_HOURLY, default=user_input.get(CONF_ENABLE_HOURLY, False)): bool,
+            vol.Required(CONF_ENABLE_WARNING, default=user_input.get(CONF_ENABLE_WARNING, False)): bool,
+            vol.Required(CONF_ENABLE_AIR, default=user_input.get(CONF_ENABLE_AIR, False)): bool,
+            vol.Required(CONF_ENABLE_YESTERDAY, default=user_input.get(CONF_ENABLE_YESTERDAY, False)): bool,
+            vol.Required(CONF_ENABLE_SUN, default=user_input.get(CONF_ENABLE_SUN, False)): bool,
+            vol.Required(CONF_ENABLE_INDICES, default=user_input.get(CONF_ENABLE_INDICES, False)): bool,
+        })
+        
+        return self.async_show_form(
+            step_id="api_features",
+            data_schema=data_schema,
+            errors=self._errors,
+        )
     
     async def _show_update_interval_form(self, user_input=None):
         """显示第4步表单：设置更新周期"""
@@ -316,7 +387,13 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
             vol.Optional("城市搜索", default=user_input.get("城市搜索", "")): str,
         }).extend({
             vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
-            vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
+            vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool,
+            vol.Optional(CONF_ENABLE_HOURLY, default=user_input.get(CONF_ENABLE_HOURLY, False)): bool,
+            vol.Optional(CONF_ENABLE_WARNING, default=user_input.get(CONF_ENABLE_WARNING, False)): bool,
+            vol.Optional(CONF_ENABLE_AIR, default=user_input.get(CONF_ENABLE_AIR, False)): bool,
+            vol.Optional(CONF_ENABLE_YESTERDAY, default=user_input.get(CONF_ENABLE_YESTERDAY, False)): bool,
+            vol.Optional(CONF_ENABLE_SUN, default=user_input.get(CONF_ENABLE_SUN, False)): bool,
+            vol.Optional(CONF_ENABLE_INDICES, default=user_input.get(CONF_ENABLE_INDICES, False)): bool
         })
         # 每次显示表单时不带出之前的参数
         return self.async_show_form(
@@ -353,11 +430,16 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
             # 返回更新后的配置
             return self.async_create_entry(title="", data=updated_data)
 
-        # 获取之前的配置值
+        # 获取之前的配置值，优先使用data，然后使用options
         config_data = {**self._config}
         config_data.update(self._config_entry.options)
         
-        # 只显示指定的四个参数
+        # 记录当前配置状态，用于调试
+        _LOGGER.debug(f"Options Flow 当前配置: {config_data}")
+        _LOGGER.debug(f"原始data: {self._config}")
+        _LOGGER.debug(f"options: {self._config_entry.options}")
+        
+        # 显示所有配置参数
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -377,6 +459,30 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_NO_UPDATE_AT_NIGHT,
                         default=config_data.get(CONF_NO_UPDATE_AT_NIGHT, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_HOURLY,
+                        default=config_data.get(CONF_ENABLE_HOURLY, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_WARNING,
+                        default=config_data.get(CONF_ENABLE_WARNING, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_AIR,
+                        default=config_data.get(CONF_ENABLE_AIR, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_YESTERDAY,
+                        default=config_data.get(CONF_ENABLE_YESTERDAY, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_SUN,
+                        default=config_data.get(CONF_ENABLE_SUN, False)
+                    ): bool,
+                    vol.Required(
+                        CONF_ENABLE_INDICES,
+                        default=config_data.get(CONF_ENABLE_INDICES, False)
                     ): bool,
                 }
             )
