@@ -30,7 +30,13 @@
             "user":{
                 "data": {
                     "update_interval_minutes": "update interval minutes(5-1440 minutes),default 10 minutes",
-                    "grid_weather": "Use Grid weather"
+                    "grid_weather": "Use Grid weather",
+                    "enable_hourly": "Enable Hourly Weather",
+                    "enable_warning": "Enable Weather Warning",
+                    "enable_air": "Enable Air Quality",
+                    "enable_yesterday": "Enable Yesterday Weather",
+                    "enable_sun": "Enable Sunrise/Sunset",
+                    "enable_indices": "Enable Weather Indices"
                 },
                 "description": "Set the parameters you need to obtain the forecast data, and the integration will take effect only after Reload."
             }
