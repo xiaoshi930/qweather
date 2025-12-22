@@ -611,7 +611,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 3px;
+        gap: 1.5px;
         height: 3vw;
       }
 
@@ -644,9 +644,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         left: 0;
         right: 0;
         height: 3.5vw;
-        background: linear-gradient(to bottom, 
-          rgba(255, 87, 34) 0%, 
-          rgba(255, 152, 0) 100%);
         border-radius: 0.5vw;
         display: flex;
         align-items: center;
@@ -663,9 +660,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         left: 0;
         right: 0;
         height: 3.5vw;
-        background: linear-gradient(to bottom, 
-          rgba(3, 169, 243) 0%, 
-          rgba(33, 150, 243) 100%);
         border-radius: 0.5vw;
         display: flex;
         align-items: center;
@@ -699,6 +693,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .dot-mode .temp-curve-low {
         background: rgba(3, 169, 243);
+        z-index: 5;
       }
 
       .dot-mode .temp-curve-hourly {
@@ -934,7 +929,28 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _getWeekday(date) {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return weekdays[date.getDay()];
+    const today = new Date();
+    
+    // 重置时间到午夜，只比较日期
+    const resetTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const targetDate = resetTime(date);
+    const todayDate = resetTime(today);
+    
+    // 计算日期差（毫秒）
+    const diffTime = targetDate - todayDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // 根据日期差返回相应的文本
+    if (diffDays === -1) {
+      return '昨天';
+    } else if (diffDays === 0) {
+      return '今天';
+    } else if (diffDays === 1) {
+      return '明天';
+    } else {
+      // 其他日期返回星期几
+      return weekdays[date.getDay()];
+    }
   }
 
   _getForecastDays() {
@@ -1402,6 +1418,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const theme = this._evaluateTheme();
     const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
     const warningColor = this._getWarningColor(warning);
+    const enableHourlyForecast = this.entity.attributes?.hourly_forecast && this.entity.attributes?.hourly_forecast.length > 0;
 
     // 获取颜色
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
@@ -1440,11 +1457,13 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             <div class="weather-right">
               <div class="city-info">${this._getCityIcon()}${city}</div>
               <!-- 切换按钮 -->
-              <div class="forecast-toggle-button">
-                <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : 'hourly-mode'}" @click="${() => this._toggleForecastMode(this.forecastMode === 'daily' ? 'hourly' : 'daily')}">
-                  ${this.forecastMode === 'daily' ? '小时天气' : '每日天气'}
-                </button>
-              </div>
+              ${enableHourlyForecast ? html`
+                <div class="forecast-toggle-button">
+                  <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : 'hourly-mode'}" @click="${() => this._toggleForecastMode(this.forecastMode === 'daily' ? 'hourly' : 'daily')}">
+                    ${this.forecastMode === 'daily' ? '小时天气' : '每日天气'}
+                  </button>
+                </div>
+              ` : ''}
             </div>
           </div>
 
@@ -1507,9 +1526,27 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const highTemp = this._formatTemperature(day.native_temperature);
           const lowTemp = this._formatTemperature(day.native_temp_low);
           
+          // 如果是昨天，设置透明度 
+          const isYesterday = weekday !== '昨天';
+          const opacity = isYesterday ? 1 : 0.5;
+          const theme = this._evaluateTheme();
+          const hightbackground = isYesterday ? 
+                'linear-gradient(to bottom,rgba(255, 87, 34, 1) 0%,rgba(255, 152, 0, 1) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgba(250, 164, 137, 1) 0%,rgba(245, 204, 141, 1) 100%)':
+                'linear-gradient(to bottom,rgba(171, 48, 10, 1) 0%,rgba(110, 75, 21, 1) 100%)';
+          const lowbackground = isYesterday ?  
+                'linear-gradient(to bottom,rgba(3, 169, 243, 1) 0%,rgba(33, 150, 243, 1) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgba(119, 209, 251, 1) 0%,rgba(122, 193, 251, 1) 100%)':
+                'linear-gradient(to bottom,rgba(33, 82, 105, 1) 0%,rgba(22, 80, 128, 1) 100%)';
+                
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgba(250, 164, 137, 1)' : 'rgba(171, 48, 10, 1)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgba(119, 209, 251, 1)' : 'rgba(31, 122, 164, 1)';
+ 
           // 计算温度矩形的动态边界和高度
           const tempBounds = this._calculateTemperatureBounds(day, extremes);
-          
+           
           // 获取雨量信息
           const rainfall = parseFloat(day.native_precipitation) || 0;
           
@@ -1522,27 +1559,27 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           return html`
             <div class="forecast-day" style="background: ${backgroundColor};">
               <!-- 星期（周X） -->
-              <div class="forecast-weekday">${weekday}</div>
+              <div class="forecast-weekday" style="opacity: ${opacity};">${weekday}</div>
               
               <!-- 日期（mm月dd日） -->
-              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
+              <div class="forecast-date" style="color: ${secondaryColor}; opacity: ${opacity};">${dateStr}</div>
               
               <!-- 高温（橙色）和 低温（蓝色） -->
               <div class="forecast-temp-container">
                 ${this.config.visual_style === 'dot' ? html`
                   <!-- 圆点模式 -->
                   <div class="temp-curve-high" style="top: ${tempBounds.highTop + 1.75}vw">
-                    <div class="temp-text">${highTemp}°</div>
+                    <div class="temp-text" style="color: ${hightcolor};">${highTemp}°</div>
                   </div>
                   <div class="temp-curve-low" style="top: ${tempBounds.lowTop + 1.75}vw">
-                    <div class="temp-text">${lowTemp}°</div>
+                    <div class="temp-text" style="color: ${lowcolor};">${lowTemp}°</div>
                   </div>
                 ` : html`
                   <!-- 按钮模式 -->
-                  <div class="temp-curve-high" style="top: ${tempBounds.highTop}vw">
+                  <div class="temp-curve-high" style="background: ${hightbackground}; top: ${tempBounds.highTop}vw">
                     ${highTemp}°
                   </div>
-                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop}vw">
+                  <div class="temp-curve-low" style="background: ${lowbackground}; top: ${tempBounds.lowTop}vw">
                     ${lowTemp}°
                   </div>
                 `}
@@ -1702,8 +1739,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _renderWeatherIcons(forecastDays) {
     return html`
       ${forecastDays.map(day => {
+        // 如果是昨天，设置透明度 
+        const date = new Date(day.datetime);
+        const weekday = this._getWeekday(date);
+        const isYesterday = weekday === '昨天';
+        const opacity = isYesterday ? 0.5 : 1;
+
         return html`
-          <div class="forecast-icon-container">
+          <div class="forecast-icon-container" style="opacity: ${opacity}">
             <div class="forecast-icon">
               <img src="${this._getWeatherIcon(day.text)}" alt="${day.text}">
             </div>
@@ -1735,6 +1778,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         const windSpeedRaw = day.windscaleday || 0;
         let windSpeed = windSpeedRaw;
         
+        // 如果是昨天，设置透明度 
+        const date = new Date(day.datetime);
+        const weekday = this._getWeekday(date);
+        const isYesterday = weekday === '昨天';
+        const opacity = isYesterday ? 0.5 : 1;
+
         // 如果风速是 "4-5" 格式，取最大值
         if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
           const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
@@ -1746,7 +1795,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         const windDirection = day.wind_bearing || 0;
         
         return html`
-          <div class="forecast-wind-container">
+          <div class="forecast-wind-container" style="opacity: ${opacity}">
             <div class="forecast-wind" style="color: ${secondaryColor};">
               <span class="wind-direction" >${this._getWindDirectionIcon(windDirection)}</span>
               <span>${windSpeed}级</span>
@@ -2431,7 +2480,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 3px;
+        gap: 1.5px;
         height: 15px;
       }
 
@@ -2475,9 +2524,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         left: 0;
         right: 0;
         height: 17.5px;
-        background: linear-gradient(to bottom, 
-          rgba(255, 87, 34) 0%, 
-          rgba(255, 152, 0) 100%);
         border-radius: 2.5px;
         display: flex;
         align-items: center;
@@ -2494,9 +2540,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         left: 0;
         right: 0;
         height: 17.5px;
-        background: linear-gradient(to bottom, 
-          rgba(3, 169, 243) 0%, 
-          rgba(33, 150, 243) 100%);
         border-radius: 2.5px;
         display: flex;
         align-items: center;
@@ -2695,7 +2738,28 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   _getWeekday(date) {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return weekdays[date.getDay()];
+    const today = new Date();
+    
+    // 重置时间到午夜，只比较日期
+    const resetTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const targetDate = resetTime(date);
+    const todayDate = resetTime(today);
+    
+    // 计算日期差（毫秒）
+    const diffTime = targetDate - todayDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // 根据日期差返回相应的文本
+    if (diffDays === -1) {
+      return '昨天';
+    } else if (diffDays === 0) {
+      return '今天';
+    } else if (diffDays === 1) {
+      return '明天';
+    } else {
+      // 其他日期返回星期几
+      return weekdays[date.getDay()];
+    }
   }
 
   _getForecastDays() {
@@ -3136,6 +3200,25 @@ class XiaoshiWeatherPadCard extends LitElement {
           const dateStr = `${date.getMonth() + 1}月${date.getDate()}日`;
           const highTemp = this._formatTemperature(day.native_temperature);
           const lowTemp = this._formatTemperature(day.native_temp_low);
+
+          // 如果是昨天，设置透明度 
+          const isYesterday = weekday !== '昨天';
+          const opacity = isYesterday ? 1 : 0.5;
+          const theme = this._evaluateTheme();
+          const hightbackground = isYesterday ? 
+                'linear-gradient(to bottom,rgba(255, 87, 34, 1) 0%,rgba(255, 152, 0, 1) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgba(250, 164, 137, 1) 0%,rgba(245, 204, 141, 1) 100%)':
+                'linear-gradient(to bottom,rgba(171, 48, 10, 1) 0%,rgba(110, 75, 21, 1) 100%)';
+          const lowbackground = isYesterday ?  
+                'linear-gradient(to bottom,rgba(3, 169, 243, 1) 0%,rgba(33, 150, 243, 1) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgba(119, 209, 251, 1) 0%,rgba(122, 193, 251, 1) 100%)':
+                'linear-gradient(to bottom,rgba(33, 82, 105, 1) 0%,rgba(22, 80, 128, 1) 100%)';
+                
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgba(250, 164, 137, 1)' : 'rgba(171, 48, 10, 1)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgba(119, 209, 251, 1)' : 'rgba(31, 122, 164, 1)';
+   
           
           // 计算温度矩形的动态边界和高度
           const tempBounds = this._calculateTemperatureBounds(day, extremes);
@@ -3150,27 +3233,27 @@ class XiaoshiWeatherPadCard extends LitElement {
           return html`
             <div class="forecast-day" style="background: ${backgroundColor};">
               <!-- 星期（周X） -->
-              <div class="forecast-weekday">${weekday}</div>
+              <div class="forecast-weekday" style="opacity: ${opacity};">${weekday}</div>
               
               <!-- 日期（mm月dd日） -->
-              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
+              <div class="forecast-date" style="color: ${secondaryColor}; opacity: ${opacity};">${dateStr}</div>
               
               <!-- 高温（橙色）和 低温（蓝色） -->
               <div class="forecast-temp-container">
                 ${this.config.visual_style === 'dot' ? html`
                   <!-- 圆点模式 -->
                   <div class="temp-curve-high" style="top: ${tempBounds.highTop + 8.5}px">
-                    <div class="temp-text">${highTemp}°</div>
+                    <div class="temp-text" style="color: ${hightcolor};">${highTemp}°</div>
                   </div>
                   <div class="temp-curve-low" style="top: ${tempBounds.lowTop + 8.5}px">
-                    <div class="temp-text">${lowTemp}°</div>
+                    <div class="temp-text" style="color: ${lowcolor};">${lowTemp}°</div>
                   </div>
                 ` : html`
                   <!-- 按钮模式 -->
-                  <div class="temp-curve-high" style="top: ${tempBounds.highTop}px">
+                  <div class="temp-curve-high" style="background: ${hightbackground}; top: ${tempBounds.highTop}px">
                     ${highTemp}°
                   </div>
-                  <div class="temp-curve-low" style="top: ${tempBounds.lowTop}px">
+                  <div class="temp-curve-low" style="background: ${lowbackground}; top: ${tempBounds.lowTop}px">
                     ${lowTemp}°
                   </div>
                 `}
@@ -3279,8 +3362,13 @@ class XiaoshiWeatherPadCard extends LitElement {
   _renderWeatherIcons(forecastDays) {
     return html`
       ${forecastDays.map(day => {
+        // 如果是昨天，设置透明度 
+        const date = new Date(day.datetime);
+        const weekday = this._getWeekday(date);
+        const isYesterday = weekday === '昨天';
+        const opacity = isYesterday ? 0.5 : 1;
         return html`
-          <div class="forecast-icon-container">
+          <div class="forecast-icon-container" style="opacity: ${opacity}>
             <div class="forecast-icon">
               <img src="${this._getWeatherIcon(day.text)}" alt="${day.text}">
             </div>
@@ -3299,7 +3387,12 @@ class XiaoshiWeatherPadCard extends LitElement {
       ${forecastDays.map(day => {
         const windSpeedRaw = day.windscaleday || 0;
         let windSpeed = windSpeedRaw;
-        
+
+        // 如果是昨天，设置透明度 
+        const date = new Date(day.datetime);
+        const weekday = this._getWeekday(date);
+        const isYesterday = weekday === '昨天';
+        const opacity = isYesterday ? 0.5 : 1;
         // 如果风速是 "4-5" 格式，取最大值
         if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
           const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
@@ -3311,7 +3404,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         const windDirection = day.wind_bearing || 0;
         
         return html`
-          <div class="forecast-wind-container">
+          <div class="forecast-wind-container" style="opacity: ${opacity}">
             <div class="forecast-wind" style="color: ${secondaryColor};">
               <span class="wind-direction" >${this._getWindDirectionIcon(windDirection)}</span>
               <span>${windSpeed}级</span>
@@ -3702,7 +3795,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 3px;
+        gap: 1.5px;
         height: 15px;
       }
 
