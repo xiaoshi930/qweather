@@ -37,6 +37,18 @@
                   "update_interval_minutes": " ",
                   "no_update_at_night": "数据夜间不更新"
                   } 
+              },
+              "api_features": {
+                  "title": "和风天气",
+                  "description": "选择需要启用的API功能（未启用的功能不会消耗API调用次数）",
+                  "data": {
+                      "enable_hourly": "启用小时天气",
+                      "enable_warning": "启用天气预警",
+                      "enable_air": "启用空气质量",
+                      "enable_yesterday": "启用昨日天气",
+                      "enable_sun": "启用日出日落",
+                      "enable_indices": "启用天气指数"
+                  } 
               }
 
         },
@@ -52,7 +64,7 @@
       "step": {
         "user": {
           "title": "和风天气",
-          "description": "",
+          "description": "修改和风天气集成配置选项。更改配置后需要重新加载集成才能生效。",
           "data": {
               "host": "API 主机地址（xxxxxx.re.qweatherapi.com）",
               "api_key": "API 密钥",
@@ -60,7 +72,13 @@
               "name" : "名称（不可重复）",
               "zone_or_device": "选择获取定位设备",
               "update_interval_minutes": "数据更新周期",
-              "no_update_at_night": "数据夜间不更新"
+              "no_update_at_night": "数据夜间不更新",
+              "enable_hourly": "启用小时天气",
+              "enable_warning": "启用天气预警",
+              "enable_air": "启用空气质量",
+              "enable_yesterday": "启用昨日天气",
+              "enable_sun": "启用日出日落",
+              "enable_indices": "启用天气指数"
           } 
         }
     }
