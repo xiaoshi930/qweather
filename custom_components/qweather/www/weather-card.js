@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 2.6   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 2.8   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -317,7 +317,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       entity: { type: Object },
       mode: { type: String },
       forecastMode: { type: String }, // 'daily' 或 'hourly'
-      showWarningDetails: { type: Boolean } // 是否显示预警详情
+      showWarningDetails: { type: Boolean }, // 是否显示预警详情
+      showApiInfo: { type: Boolean }, // 是否显示空气质量详情
+      showIndicesDetails: { type: Boolean } // 是否显示天气指数详情
     };
   }
 
@@ -416,6 +418,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         color: white;
         font-weight: bold;
       }
+
 
       .toggle-btn.daily-mode {
         background: #03A9F4; /* 蓝色 */
@@ -631,12 +634,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .temp-line-canvas-high {
         top: 7.7vw;
-        height: 22vw; 
+        height: 21.5vw; 
       }
 
       .temp-line-canvas-low {
         top: 7.7vw;
-        height: 22vw; 
+        height: 21.5vw; 
       }
 
       .temp-curve-high {
@@ -678,7 +681,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         height: 1vw;
         border-radius: 50%;
         left: calc(50% - 0.5vw);
-        margin-top: -0.5vw;
+        margin-top: -0.75vw;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -703,13 +706,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /* 圆点上方的温度文字 */
       .dot-mode .temp-text {
         position: absolute;
-        top: -4vw;
+        top: -3.5vw;
         left: 50%;
         transform: translateX(-50%);
         font-size: 2.2vw;
         font-weight: 600;
         white-space: nowrap;
         text-shadow: 0 1px 2px rgba(123, 123, 123, 0.3);
+        margin-left: 0.4vw;
       }
 
       .dot-mode .temp-curve-high .temp-text {
@@ -718,8 +722,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .dot-mode .temp-curve-low .temp-text {
         color: rgba(3, 169, 243);
+        top: 0.5vw;
       }
-
       .dot-mode .temp-curve-hourly .temp-text {
         color: rgba(193, 65, 215, 1);
       }
@@ -811,11 +815,47 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         display: flex;
         align-items: flex-end;
         justify-content: start;
-        margin-bottom: -1vw;
+        margin-bottom: 1vw;
         margin-top: 2vw;
         margin-left: 1vw;
         font-size: 2vw;
         height: 2vw;
+      }
+
+      /*空气质量按钮样式*/
+      .toggle-btn-api {
+        background: transparent;
+        padding: 0;
+        border: none;
+        font-size: 3vw;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-left: 1vw;
+      }
+
+      /*空气质量详情卡片样式*/
+      .aqi-details-card {
+        position: relative;
+        border-radius: 2vw;
+        margin-top: 1vw;
+        padding: 2vw;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s ease;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      /*天气指数详情卡片样式*/
+      .indices-details-card {
+        position: relative;
+        border-radius: 2vw;
+        margin-top: 1vw;
+        padding: 2vw;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s ease;
+        animation: slideDown 0.3s ease-out;
       }
 
     `;
@@ -826,7 +866,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     this.mode = '家';
     this.forecastMode = 'daily'; // 默认显示每日天气
     this.showWarningDetails = false;
+    this.showApiInfo = false;
+    this.showIndicesDetails = false;
     this.warningTimer = null;
+    this.apiTimer = null;
+    this.indicesTimer = null;
   }
   
   _evaluateTheme() {
@@ -970,7 +1014,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _toggleWarningDetails() {
-    if (this.showWarningDetails) {
+    if (this.showWarningDetails ) {
       // 如果当前显示，则隐藏并清除定时器
       this._hideWarningDetails();
     } else {
@@ -988,6 +1032,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         this._hideWarningDetails();
       }, 20000);
     }
+
   }
 
   _hideWarningDetails() {
@@ -995,6 +1040,66 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (this.warningTimer) {
       clearTimeout(this.warningTimer);
       this.warningTimer = null;
+    }
+    this.requestUpdate();
+  }
+
+  _toggleApiInfo() {
+    if (this.showApiInfo ) {
+      // 如果当前显示，则隐藏并清除定时器
+      this._hideApiDetails();
+    } else {
+      // 如果当前隐藏，则显示并设置20秒定时器
+      this.showApiInfo = true;
+      this.requestUpdate();
+      
+      // 清除之前的定时器
+      if (this.apiTimer) {
+        clearTimeout(this.apiTimer);
+      }
+      
+      // 设置20秒后自动隐藏
+      this.apiTimer = setTimeout(() => {
+        this._hideApiDetails();
+      }, 20000);
+    }
+  }
+
+  _hideApiDetails() {
+    this.showApiInfo = false;
+    if (this.apiTimer) {
+      clearTimeout(this.apiTimer);
+      this.apiTimer = null;
+    }
+    this.requestUpdate();
+  }
+
+  _toggleIndicesDetails() {
+    if (this.showIndicesDetails ) {
+      // 如果当前显示，则隐藏并清除定时器
+      this._hideIndicesDetails();
+    } else {
+      // 如果当前隐藏，则显示并设置20秒定时器
+      this.showIndicesDetails = true;
+      this.requestUpdate();
+      
+      // 清除之前的定时器
+      if (this.indicesTimer) {
+        clearTimeout(this.indicesTimer);
+      }
+      
+      // 设置20秒后自动隐藏
+      this.indicesTimer = setTimeout(() => {
+        this._hideIndicesDetails();
+      }, 20000);
+    }
+  }
+
+  _hideIndicesDetails() {
+    this.showIndicesDetails = false;
+    if (this.indicesTimer) {
+      clearTimeout(this.indicesTimer);
+      this.indicesTimer = null;
     }
     this.requestUpdate();
   }
@@ -1044,6 +1149,20 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     
     // 保留1位小数
     return humidityValue.toFixed(1);
+  }
+
+  _formatSunTime(datetime) {
+    if (!datetime) return '';
+    
+    try {
+      const date = new Date(datetime);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.warn('时间格式化错误:', error);
+      return datetime;
+    }
   }
 
   _getTemperatureExtremes() {
@@ -1396,7 +1515,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         color = '#9E9E9E'; // 灰色（其他未知类别）
     }
     
-    return html`<span style="color: ${color}; font-weight: bold;"> ${category}</span>`;
+    return html`
+            <button class="toggle-btn-api" style = "color: ${color};"} @click="${() => this._toggleApiInfo()}">
+              ${category}
+            </button>
+            `
   } 
 
   render() {
@@ -1417,8 +1540,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const warning = this.entity.attributes?.warning || [];
     const theme = this._evaluateTheme();
     const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
+    const hasapi = this.entity.attributes?.aqi && Object.keys(this.entity.attributes.aqi).length > 0;
+    const hassairindices = this.entity.attributes?.air_indices && Object.keys(this.entity.attributes.air_indices).length > 0;
     const warningColor = this._getWarningColor(warning);
     const enableHourlyForecast = this.entity.attributes?.hourly_forecast && this.entity.attributes?.hourly_forecast.length > 0;
+    const sunRise = this.entity.attributes?.sun.sunrise || '';
+    const sunSet = this.entity.attributes?.sun.sunset || '';
 
     // 获取颜色
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
@@ -1456,14 +1583,26 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             <!-- 城市信息 - 放在头部右侧 -->
             <div class="weather-right">
               <div class="city-info">${this._getCityIcon()}${city}</div>
-              <!-- 切换按钮 -->
-              ${enableHourlyForecast ? html`
-                <div class="forecast-toggle-button">
-                  <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : 'hourly-mode'}" @click="${() => this._toggleForecastMode(this.forecastMode === 'daily' ? 'hourly' : 'daily')}">
-                    ${this.forecastMode === 'daily' ? '小时天气' : '每日天气'}
-                  </button>
-                </div>
-              ` : ''}
+
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <!-- 天气指数按钮 -->
+                ${this.entity.attributes?.air_indices && this.entity.attributes.air_indices.length > 0 ? html`
+                  <div class="forecast-toggle-button">
+                    <button class="toggle-btn" style="margin-right: 1vw; background: #2E7D32;" @click="${() => this._toggleIndicesDetails()}">
+                      天气指数
+                    </button>
+                  </div>
+                ` : ''}
+
+                <!-- 切换按钮 -->
+                ${enableHourlyForecast ? html`
+                  <div class="forecast-toggle-button">
+                    <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : 'hourly-mode'}" @click="${() => this._toggleForecastMode(this.forecastMode === 'daily' ? 'hourly' : 'daily')}">
+                      ${this.forecastMode === 'daily' ? '小时天气' : '每日天气'}
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
             </div>
           </div>
 
@@ -1472,12 +1611,35 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
         </div>
         
-        <!-- 预警详情 - 在最下方显示 -->
+        <!-- 预警详情 -->
         ${this.showWarningDetails && hasWarning ? this._renderWarningDetails() : ''}
 
-        <div class="update-time">
-          ${this._getRelativeTime(update_time)}
+        <!-- 空气质量详情 -->
+        ${this.showApiInfo && hasapi ? this._renderAqiDetails() : ''}
+
+        <!-- 天气指数详情 -->    
+        ${this.showIndicesDetails && hassairindices ? this._renderIndicesDetails() : ''}
+
+        <div class="update-time" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            ${this._getRelativeTime(update_time)}  
+          </div>
+          
+          <!-- 日出日落信息 - 放在右侧 -->
+          ${sunRise && sunSet ? html`
+            <div class="sunrise-sunset-container" style="display: flex; align-items: center; gap: 1vw;">
+              <div style="display: flex; align-items: center; font-size: 2vw;">
+                <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 0.6vw; --mdc-icon-size: 2.3vw;"></ha-icon>
+                <span>${this._formatSunTime(sunRise)} </span>
+              </div>
+              <div style="display: flex; align-items: center; font-size: 2vw;">
+                <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 0.6vw; --mdc-icon-size: 2.3vw;"></ha-icon>
+                <span style="margin-right: 1vw;">${this._formatSunTime(sunSet)}  </span>
+              </div>
+            </div>
+          ` : ''}
         </div>
+
       </div>
     `;
   }
@@ -1531,18 +1693,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
           const hightbackground = isYesterday ? 
-                'linear-gradient(to bottom,rgba(255, 87, 34, 1) 0%,rgba(255, 152, 0, 1) 100%)':
+                'linear-gradient(to bottom,rgba(255, 87, 34) 0%,rgba(255, 152, 0) 100%)':
                 theme === 'on' ? 
-                'linear-gradient(to bottom,rgba(250, 164, 137, 1) 0%,rgba(245, 204, 141, 1) 100%)':
-                'linear-gradient(to bottom,rgba(171, 48, 10, 1) 0%,rgba(110, 75, 21, 1) 100%)';
+                'linear-gradient(to bottom,rgb(250, 149, 117) 0%,rgb(250, 188, 97) 100%)':
+                'linear-gradient(to bottom,rgb(181, 81, 49) 0%,rgb(181, 120, 28) 100%)';
           const lowbackground = isYesterday ?  
-                'linear-gradient(to bottom,rgba(3, 169, 243, 1) 0%,rgba(33, 150, 243, 1) 100%)':
+                'linear-gradient(to bottom,rgba(3, 169, 243) 0%,rgba(33, 150, 243) 100%)':
                 theme === 'on' ? 
-                'linear-gradient(to bottom,rgba(119, 209, 251, 1) 0%,rgba(122, 193, 251, 1) 100%)':
-                'linear-gradient(to bottom,rgba(33, 82, 105, 1) 0%,rgba(22, 80, 128, 1) 100%)';
+                'linear-gradient(to bottom,rgb(99, 198, 243) 0%,rgb(117, 187, 243)100%)':
+                'linear-gradient(to bottom,rgb(30, 130, 174) 0%,rgb(48, 118, 174) 100%)';
                 
-          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgba(250, 164, 137, 1)' : 'rgba(171, 48, 10, 1)';
-          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgba(119, 209, 251, 1)' : 'rgba(31, 122, 164, 1)';
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
  
           // 计算温度矩形的动态边界和高度
           const tempBounds = this._calculateTemperatureBounds(day, extremes);
@@ -1909,7 +2071,120 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     `;
   }
 
+  _renderAqiDetails() {
+    if (!this.showApiInfo || !this.entity?.attributes?.aqi) {
+      return '';
+    }
 
+    const aqi = this.entity.attributes.aqi;
+    const theme = this._evaluateTheme();
+    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const backgroundColor = theme === 'on' ? 'rgba(50,50,50, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    
+    // 获取AQI数值和等级
+    const aqiValue = aqi.aqi || aqi.value || 0;
+    const category = aqi.category || '未知';
+    const level = aqi.level || '未知';
+    const pm25 = aqi.pm2p5 || 0;
+    const pm10 = aqi.pm10 || 0;
+    const so2 = aqi.so2 || 0;
+    const no2 = aqi.no2 || 0;
+    const co = aqi.co || 0;
+    const o3 = aqi.o3 || 0;
+    
+    // 根据等级获取颜色
+    const getAqiColor = (category) => {
+      switch(category) {
+        case '优': return '#4CAF50'; // 绿色
+        case '良': return '#FFC107'; // 黄色
+        case '轻度污染': return '#FF9800'; // 橙色
+        case '中度污染': return '#FF5722'; // 深橙色
+        case '重度污染': return '#F44336'; // 红色
+        case '严重污染': return '#9C27B0'; // 紫色
+        default: return '#9E9E9E'; // 灰色
+      }
+    };
+    
+    const aqiColor = getAqiColor(category);
+
+    return html`
+      <div class="aqi-details-card" style="background-color: ${backgroundColor}; border-radius: 2vw; padding: 2vw; margin-top: 1.5vw;">
+        
+        <!-- AQI总览 -->
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.5vw; padding: 0.5vw;  border-radius: 1.5vw;">
+          <div style="text-align: center;">
+            <div style="font-size: 4vw; font-weight: bold; color: ${aqiColor};">${aqiValue}</div>
+            <div style="font-size: 2.5vw; color: ${aqiColor}; margin-top: 0.5vw;">${category} ( ${level}级 )</div>
+          </div>
+        </div>
+        
+        <!-- 污染物详情 -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1vw;">
+          <div style="text-align: center; padding: 0.5vw;border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">PM2.5</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${pm25} μg/m³</div>
+          </div>
+          
+          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">PM10</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${pm10} μg/m³</div>
+          </div>
+          
+          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">SO₂</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${so2} μg/m³</div>
+          </div>
+          
+          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">NO₂</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${no2} μg/m³</div>
+          </div>
+          
+          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">CO</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${co} mg/m³</div>
+          </div>
+          
+          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
+            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">O₃</div>
+            <div style="font-size: 2vw; color: ${textcolor};">${o3} μg/m³</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderIndicesDetails() {
+    if (!this.showIndicesDetails || !this.entity?.attributes?.air_indices) {
+      return '';
+    }
+
+    const indices = this.entity.attributes.air_indices;
+    const theme = this._evaluateTheme();
+    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const textcolor2 = theme === 'on' ? 'rgba(23, 140, 5, 1)' : 'rgba(10, 231, 47, 1)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const backgroundColor2 = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+
+    return html`
+      <div class="indices-details-card" style="background-color: ${backgroundColor}; border-radius: 2vw; padding: 2vw; margin-top: 1.5vw;">
+        
+        <!-- 指数列表 -->
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1vw;">
+          ${indices.map(index => html`
+            <div style="padding: 1vw; background: ${backgroundColor2}; border-radius: 1vw;">
+              <div> 
+                <span style="font-size: 2vw; font-weight: bold; color: ${textcolor2}; margin-bottom: 0.2vw;">${index.name} </span>
+                <span style="font-size: 1.8vw; color: ${textcolor}; margin-bottom: 0.2vw;"> 等级:${index.level}  ${index.category}</span>
+              </div>
+
+              <div style="font-size: 1.5vw; color: ${textcolor}; opacity: 0.8; line-height: 1.4;">${index.text}</div>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
+  }
 
   setConfig(config) {
     if (!config.entity) {
@@ -2305,6 +2580,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-weight: bold;
         margin-top: 0;
         margin-bottom: 0;
+        white-space: nowrap;
       }
 
       /*天气头部 天气信息*/
@@ -2313,15 +2589,48 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-size: 12px;
         margin-top: 0px;
       }
+        
+      /*天气行*/
+      .weather-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 0px;
+      }
 
+      /*天气右侧对齐*/
+      .weather-right-align {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+      }
 
       /*天气右侧容器*/
       .weather-right {
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
-        justify-content: space-between;
-        min-height: 50px;
+        align-items: stretch;
+        justify-content: flex-start;
+        flex: 1;
+        width: 100%;
+      }
+
+      /*天气温度样式*/
+      .weather-temperature {
+        height: 30px;
+        font-size: 23px;
+        font-weight: bold;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+
+      /*天气信息样式*/
+      .weather-info {
+        height: 15px;
+        font-size: 12px;
+        margin-top: 0;
+        margin-bottom: 0;
       }
 
       .forecast-toggle-button {
@@ -2340,6 +2649,18 @@ class XiaoshiWeatherPadCard extends LitElement {
         white-space: nowrap;
       }
 
+      .toggle-btn-aqi {
+        background: transparent;
+        padding:0;
+        border: none;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        white-space: nowrap;
+        margin-left: 5px;
+      }
+
       .toggle-btn.daily-mode {
         background: #03A9F4; /* 蓝色 */
       }
@@ -2352,7 +2673,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       .forecast-container {
         display: grid;
         gap: 4px;
-        margin-top: 10px;
+        margin-top: 4px;
         position: relative;
       }
 
@@ -2447,14 +2768,16 @@ class XiaoshiWeatherPadCard extends LitElement {
       .forecast-icon-container {
         text-align: center;
         position: relative;
+        width: 70%;
+        height: 70%;
+        left: 15%;
+        object-fit: contain;
+        margin: -5px 0 -10px 0;
       }
 
       /*9日天气部分 图标*/
       .forecast-icon {
-        width: 25px;
-        height: 25px;
         margin: 0px auto;
-        margin-top: 0;
       }
 
       /*9日天气部分 图标*/
@@ -2500,12 +2823,12 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .temp-line-canvas-high {
         top: 38.5px;
-        height: 125px; 
+        height: 120px; 
       }
 
       .temp-line-canvas-low {
         top: 38.5px;
-        height: 125px; 
+        height: 120px; 
       }
 
       .temp-line-canvas-hourly {
@@ -2558,7 +2881,6 @@ class XiaoshiWeatherPadCard extends LitElement {
         height: 5px;
         border-radius: 50%;
         left: calc(50% - 2.5px);
-        margin-top: -2.5px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2582,16 +2904,17 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .dot-mode .temp-curve-high {
         background: rgba(255, 87, 34);
+        margin-top: -4px;
       }
 
       .dot-mode .temp-curve-low {
         background: rgba(3, 169, 243);
+        margin-top: -7px;
       }
 
       /* 圆点上方的温度文字 */
       .dot-mode .temp-text {
         position: absolute;
-        top: -18px;
         left: 50%;
         transform: translateX(-50%);
         font-size: 12px;
@@ -2602,10 +2925,12 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .dot-mode .temp-curve-high .temp-text {
         color: rgba(255, 87, 34);
+        top: -18px;
       }
 
       .dot-mode .temp-curve-low .temp-text {
         color: rgba(3, 169, 243);
+        top: 2px;
       }
 
       /*预警图标和文字样式*/
@@ -2619,7 +2944,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         white-space: nowrap;
         align-self: center;
         margin-left: auto;
-        margin-top: 10px;
+        margin-top: -2px;
       }
 
       .warning-icon-text:hover {
@@ -2887,6 +3212,100 @@ class XiaoshiWeatherPadCard extends LitElement {
     }
   }
 
+  _toggleApiInfo() {
+    // 使用 browser_mod 弹出独立的预警信息卡片
+    const popupStyle = this.config.popup_style || `
+      --mdc-theme-surface: rgb(0,0,0,0); 
+      --ha-card-background: rgb(0,0,0,0);
+      --ha-card-border-width: 0; 
+      --dialog-backdrop-filter: blur(10px) brightness(1);
+      --popup-min-width: 90vw;
+    `;
+    
+    if (window.browser_mod) {
+      const hassData = {
+        states: this.hass.states,
+        user: this.hass.user,
+        theme: this.hass.theme,
+        language: this.hass.language,
+        resources: this.hass.resources,
+        locale: this.hass.locale,
+        entity_id: this.hass.entity_id,
+        config: this.hass.config,
+        services: this.hass.services
+      };
+      
+      const configData = {
+        entity: this.config.entity,
+        theme: this._evaluateTheme(),
+        popup_style: this.config.popup_style
+      };
+      
+      const popupContent = `
+        <ha-card>
+            <xiaoshi-aqi-weather-card 
+              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
+              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
+            ></xiaoshi-aqi-weather-card>
+        </ha-card>
+      `;
+      
+      window.browser_mod.service('popup', { 
+        style: popupStyle,
+        content: popupContent
+      });
+    } else {
+      console.warn('browser_mod not available, cannot show warning popup');
+    }
+  }
+  
+  _toggleIndicesDetails() {
+    // 使用 browser_mod 弹出独立的预警信息卡片
+    const popupStyle = this.config.popup_style || `
+      --mdc-theme-surface: rgb(0,0,0,0); 
+      --ha-card-background: rgb(0,0,0,0);
+      --ha-card-border-width: 0; 
+      --dialog-backdrop-filter: blur(10px) brightness(1);
+      --popup-min-width: 90vw;
+    `;
+    
+    if (window.browser_mod) {
+      const hassData = {
+        states: this.hass.states,
+        user: this.hass.user,
+        theme: this.hass.theme,
+        language: this.hass.language,
+        resources: this.hass.resources,
+        locale: this.hass.locale,
+        entity_id: this.hass.entity_id,
+        config: this.hass.config,
+        services: this.hass.services
+      };
+      
+      const configData = {
+        entity: this.config.entity,
+        theme: this._evaluateTheme(),
+        popup_style: this.config.popup_style
+      };
+      
+      const popupContent = `
+        <ha-card>
+            <xiaoshi-indices-weather-card 
+              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
+              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
+            ></xiaoshi-indices-weather-card>
+        </ha-card>
+      `;
+      
+      window.browser_mod.service('popup', { 
+        style: popupStyle,
+        content: popupContent
+      });
+    } else {
+      console.warn('browser_mod not available, cannot show warning popup');
+    }
+  }
+
   _getAqiCategoryHtml() {
     const category = this.entity.attributes?.aqi?.category;
     if (!category) return '';
@@ -2911,7 +3330,11 @@ class XiaoshiWeatherPadCard extends LitElement {
         color = '#9E9E9E'; // 灰色（其他未知类别）
     }
     
-    return html`<span style="color: ${color}; font-weight: bold;"> ${category}</span>`;
+    return html`
+            <button class="toggle-btn-aqi" style="color: ${color};" @click="${() => this._toggleApiInfo()}">
+              ${category}
+            </button>
+            ` 
   }
 
   _getCustomTemperature() {
@@ -2944,6 +3367,20 @@ class XiaoshiWeatherPadCard extends LitElement {
     
     // 保留1位小数
     return humidityValue.toFixed(1);
+  }
+
+  _formatSunTime(datetime) {
+    if (!datetime) return '';
+    
+    try {
+      const date = new Date(datetime);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.warn('时间格式化错误:', error);
+      return datetime;
+    }
   }
 
   _getTemperatureExtremes() {
@@ -3205,21 +3642,23 @@ class XiaoshiWeatherPadCard extends LitElement {
           const isYesterday = weekday !== '昨天';
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
-          const hightbackground = isYesterday ? 
-                'linear-gradient(to bottom,rgba(255, 87, 34, 1) 0%,rgba(255, 152, 0, 1) 100%)':
-                theme === 'on' ? 
-                'linear-gradient(to bottom,rgba(250, 164, 137, 1) 0%,rgba(245, 204, 141, 1) 100%)':
-                'linear-gradient(to bottom,rgba(171, 48, 10, 1) 0%,rgba(110, 75, 21, 1) 100%)';
-          const lowbackground = isYesterday ?  
-                'linear-gradient(to bottom,rgba(3, 169, 243, 1) 0%,rgba(33, 150, 243, 1) 100%)':
-                theme === 'on' ? 
-                'linear-gradient(to bottom,rgba(119, 209, 251, 1) 0%,rgba(122, 193, 251, 1) 100%)':
-                'linear-gradient(to bottom,rgba(33, 82, 105, 1) 0%,rgba(22, 80, 128, 1) 100%)';
-                
-          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgba(250, 164, 137, 1)' : 'rgba(171, 48, 10, 1)';
-          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgba(119, 209, 251, 1)' : 'rgba(31, 122, 164, 1)';
    
-          
+          const hightbackground = isYesterday ? 
+                'linear-gradient(to bottom,rgba(255, 87, 34) 0%,rgba(255, 152, 0) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgb(250, 149, 117) 0%,rgb(250, 188, 97) 100%)':
+                'linear-gradient(to bottom,rgb(181, 81, 49) 0%,rgb(181, 120, 28) 100%)';
+          const lowbackground = isYesterday ?  
+                'linear-gradient(to bottom,rgba(3, 169, 243) 0%,rgba(33, 150, 243) 100%)':
+                theme === 'on' ? 
+                'linear-gradient(to bottom,rgb(99, 198, 243) 0%,rgb(117, 187, 243)100%)':
+                'linear-gradient(to bottom,rgb(30, 130, 174) 0%,rgb(48, 118, 174) 100%)';
+                
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
+
+
+
           // 计算温度矩形的动态边界和高度
           const tempBounds = this._calculateTemperatureBounds(day, extremes);
           
@@ -3304,9 +3743,14 @@ class XiaoshiWeatherPadCard extends LitElement {
     const windSpeed = this.entity.attributes?.wind_speed || 0;
     const warning = this.entity.attributes?.warning || [];
     const theme = this._evaluateTheme();
+    const hasaqi = this.entity.attributes?.aqi && Object.keys(this.entity.attributes.aqi).length > 0;
+    const hassairindices = this.entity.attributes?.air_indices && Object.keys(this.entity.attributes.air_indices).length > 0;
     const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
     const warningColor = this._getWarningColor(warning);
 
+    const update_time = this.entity.attributes?.update_time || '未知时间';
+    const sunRise = this.entity.attributes?.sun.sunrise || '';
+    const sunSet = this.entity.attributes?.sun.sunset || '';
     // 获取颜色
     const fgColor = 'rgb(255, 255, 255)';
     const bgColor = 'rgb(255, 255, 255, 0)';
@@ -3322,31 +3766,47 @@ class XiaoshiWeatherPadCard extends LitElement {
         <div class="main-content">
           <!-- 天气头部信息 -->
           <div class="weather-header">
-            <div class="weather-left">
-              <div class="weather-icon">
-                <img src="${this._getWeatherIcon(condition)}" alt="${condition}">
-              </div>
-              <div class="weather-details">
+            <!-- 左侧图标 -->
+            <div class="weather-icon">
+              <img src="${this._getWeatherIcon(condition)}" alt="${condition}">
+            </div>
+            
+            <!-- 右侧内容区域 -->
+            <div class="weather-right">
+              <!-- 第一行：温度湿度 | 预警图标 -->
+              <div class="weather-row">
                 <div class="weather-temperature">
                   ${temperature}<font size="1px"><b> ℃&ensp;</b></font>
                   ${humidity}<font size="1px"><b> % </b></font>
                 </div>
-                <div class="weather-info">
-                  <span style="color: ${secondaryColor};">${condition}   ${windSpeed} km/h   </span>
-                  ${this._getAqiCategoryHtml()}
+                <div class="weather-right-align">
+                  ${hasWarning ? 
+                    html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningModal()}">⚠ ${warning.length}</div>` : ''}
                 </div>
               </div>
-            </div>
-            <!-- 右侧区域 -->
-            <div class="weather-right">
-                    <!-- 预警图标 -->
-                    ${hasWarning ? 
-                      html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningModal()}">⚠ ${warning.length}</div>` : ''}
-              <!-- 24小时天气按钮 -->
-              <div class="forecast-toggle-button">
-                <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
-                  24小时
-                </button>
+              
+              <!-- 第二行：天气信息 + AQI | 指数按钮 + 小时按钮 -->
+              <div class="weather-row">
+                <div class="weather-info">
+                  <span style="color: ${secondaryColor};">${condition}   
+                    ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                  </span>
+                  ${this._getAqiCategoryHtml()}
+                </div>
+                <div class="weather-right-align">
+                  <div style="display: flex; justify-content: flex-end; align-items: center; gap: 5px">
+                    <!-- 指数 -->
+                    ${hassairindices ? html`
+                      <button class="toggle-btn daily-mode" style="background: rgba(5, 155, 10);" @click="${() => this._toggleIndicesDetails()}">
+                        指数
+                      </button>
+                    ` : ''}
+                    <!-- 24小时天气按钮 -->
+                    <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
+                      小时
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3355,8 +3815,86 @@ class XiaoshiWeatherPadCard extends LitElement {
           ${this._renderDailyForecast()}
 
         </div>
+
+        <div class="update-time" style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+          <div>
+            ${this._getRelativeTime(update_time)}  
+          </div>
+          
+          <!-- 日出日落信息 - 放在右侧 -->
+          ${sunRise && sunSet ? html`
+            <div class="sunrise-sunset-container" style="display: flex; align-items: center; gap: 5px;">
+              <div style="display: flex; align-items: center; font-size: 10px;">
+                <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
+                <span>${this._formatSunTime(sunRise)} </span>
+              </div>
+              <div style="display: flex; align-items: center; font-size: 10px;">
+                <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
+                <span style="margin-right: 5px;">${this._formatSunTime(sunSet)}  </span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
       </div>
     `;
+  }
+
+  _formatSunTime(datetime) {
+    if (!datetime) return '';
+    
+    try {
+      const date = new Date(datetime);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.warn('时间格式化错误:', error);
+      return datetime;
+    }
+  }
+
+   _getRelativeTime(updateTime) {
+    if (!updateTime || updateTime === '未知时间') {
+      return '未知时间';
+    }
+    
+    try {
+      // 解析更新时间，支持多种格式
+      let updateDate;
+      if (updateTime.includes(' ')) {
+        // 格式: "2025-12-18 20:28"
+        const [datePart, timePart] = updateTime.split(' ');
+        updateDate = new Date(`${datePart}T${timePart}:00`);
+      } else if (updateTime.includes('T')) {
+        // 格式: "2025-12-18T20:28:00"
+        updateDate = new Date(updateTime);
+      } else {
+        return updateTime; // 无法解析，返回原始值
+      }
+      
+      const now = new Date();
+      const diffMs = now - updateDate;
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      let relativeTime = '';
+      if (diffMinutes < 1) {
+        relativeTime = '刚刚';
+      } else if (diffMinutes < 60) {
+        relativeTime = `${diffMinutes}分钟前`;
+      } else if (diffHours < 24) {
+        relativeTime = `${diffHours}小时前`;
+      } else {
+        relativeTime = `${diffDays}天前`;
+      }
+      
+      return `数据更新时间：: ${relativeTime}`;
+    } catch (error) {
+      console.warn('时间解析错误:', error);
+      return `数据更新时间：${updateTime}`;
+    }
   }
 
   _renderWeatherIcons(forecastDays) {
@@ -3634,9 +4172,28 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       .weather-right {
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
-        justify-content: space-between;
+        align-items: stretch;
+        justify-content: flex-start;
         min-height: 50px;
+        flex: 1;
+        width: 100%;
+      }
+
+      /*天气温度样式*/
+      .weather-temperature {
+        height: 30px;
+        font-size: 23px;
+        font-weight: bold;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+
+      /*天气信息样式*/
+      .weather-info {
+        height: 15px;
+        font-size: 12px;
+        margin-top: 0;
+        margin-bottom: 0;
       }
 
       .forecast-toggle-button {
@@ -4218,6 +4775,20 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     return humidityValue.toFixed(1);
   }
 
+  _formatSunTime(datetime) {
+    if (!datetime) return '';
+    
+    try {
+      const date = new Date(datetime);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.warn('时间格式化错误:', error);
+      return datetime;
+    }
+  }
+
   _parseAttributeData() {
     // 从hass-hass属性解析数据
     const hassAttr = this.getAttribute('hass-hass');
@@ -4339,7 +4910,9 @@ class XiaoshiHourlyWeatherCard extends LitElement {
                         ${humidity}<font size="1px"><b> % </b></font>
                       </div>
                       <div class="weather-info">
-                        <span style="color: ${secondaryColor};">${condition}   ${windSpeed} km/h   </span>
+                        <span style="color: ${secondaryColor};">${condition}   
+                          ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                        </span>
                         ${this._getAqiCategoryHtml()}
                       </div>
                     </div>
@@ -5271,6 +5844,569 @@ class XiaoshiWarningWeatherCard extends LitElement {
 
 }
 customElements.define('xiaoshi-warning-weather-card', XiaoshiWarningWeatherCard);
+
+class XiaoshiAqiWeatherCard extends LitElement {
+  static get properties() {
+    return {
+      hass: { type: Object },
+      config: { type: Object },
+      entity: { type: Object }
+    };
+  }
+
+  static get styles() {
+    return css`
+      :host {
+        display: block;
+      }
+
+      .aqi-card {
+        position: relative;
+        border-radius: 15px;
+        padding: 16px;
+        font-family: sans-serif;
+        overflow: hidden;
+      }
+
+      .aqi-card.dark-theme {
+        background: rgba(50, 50, 50);
+      }
+
+      .aqi-card.light-theme {
+        background: rgba(255, 255, 255);
+      }
+
+      .aqi-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: -10px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid rgba(150, 150, 150, 0.4);
+        padding-bottom: 10px;
+      }
+
+      .aqi-modal-header h2 {
+        margin: 20px 20px 5px 20px;
+        font-size: 20px;
+        font-weight: bold;
+      }      
+
+      .aqi-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: rgba(255, 100, 0);
+        margin-right: 10px;
+        padding: 5px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+
+      .aqi-close-btn:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(255, 0, 0);
+      }
+
+      /* AQI总览 */
+      .aqi-overview {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        padding: 8px;
+        border-radius: 12px;
+      }
+
+      .aqi-main-value {
+        text-align: center;
+      }
+
+      .aqi-value {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+
+      .aqi-category {
+        font-size: 18px;
+        margin-top: 4px;
+      }
+
+      /* 污染物网格 */
+      .pollutants-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .pollutant-item {
+        text-align: center;
+        padding: 8px;
+        border-radius: 8px;
+      }
+
+      .pollutant-name {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+
+      .pollutant-value {
+        font-size: 14px;
+      }
+    `;
+  }
+
+  constructor() {
+    super();
+  }
+
+  _evaluateTheme() {
+    try {
+      if (!this.config || !this.config.theme) return 'on';
+      if (typeof this.config.theme === 'function') {
+          return this.config.theme();
+      }
+      if (typeof this.config.theme === 'string') {
+          // 处理Home Assistant模板语法 [[[ return theme() ]]]
+          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
+              // 提取模板中的JavaScript代码
+              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
+              if (match && match[1]) {
+                  const code = match[1].trim();
+                  // 如果代码以return开头，直接执行
+                  if (code.startsWith('return')) {
+                      return (new Function(code))();
+                  }
+                  // 否则包装在return中执行
+                  return (new Function(`return ${code}`))();
+              }
+          }
+          // 处理直接的JavaScript函数字符串
+          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
+              return (new Function(`return ${this.config.theme}`))();
+          }
+      }
+      return this.config.theme;
+    } catch(e) {
+      console.error('计算主题时出错:', e);
+      return 'on';
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // 处理通过属性传递的数据
+    this._parseAttributeData();
+    this._updateEntities();
+  }
+
+  updated(changedProperties) {
+    super.updated(changedProperties);
+    if (changedProperties.has('config') || changedProperties.has('hass')) {
+      // 处理通过属性传递的数据
+      this._parseAttributeData();
+      this._updateEntities();
+    }
+  }
+
+  _updateEntities() {
+    if (!this.hass || !this.config) return;
+
+    this.entity = this.hass.states[this.config.entity];
+  }
+
+  _parseAttributeData() {
+    // 从hass-hass属性解析数据
+    const hassAttr = this.getAttribute('hass-hass');
+    if (hassAttr && !this.hass) {
+      try {
+        this.hass = JSON.parse(decodeURIComponent(hassAttr));
+      } catch (e) {
+        console.error('Failed to parse hass attribute:', e);
+      }
+    }
+
+    // 从hass-config属性解析配置数据
+    const configAttr = this.getAttribute('hass-config');
+    if (configAttr && !this.config) {
+      try {
+        this.config = JSON.parse(decodeURIComponent(configAttr));
+      } catch (e) {
+        console.error('Failed to parse config attribute:', e);
+      }
+    }
+  }
+
+  _getAqiColor(category) {
+    switch(category) {
+      case '优': return '#4CAF50'; // 绿色
+      case '良': return '#FFC107'; // 黄色
+      case '轻度污染': return '#FF9800'; // 橙色
+      case '中度污染': return '#FF5722'; // 深橙色
+      case '重度污染': return '#F44336'; // 红色
+      case '严重污染': return '#9C27B0'; // 紫色
+      default: return '#9E9E9E'; // 灰色
+    }
+  }
+
+  _toggleAqiClose() {
+    // 关闭小时天气弹窗
+    if (window.browser_mod) {
+      window.browser_mod.service('close_popup');
+    } else {
+      // 如果没有 browser_mod，尝试查找并关闭弹窗
+      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
+      if (modal) {
+        modal.remove();
+      }
+    }
+  }
+
+  render() {
+    if (!this.hass || !this.config) return html``;
+ 
+    this.entity = this.hass.states[this.config.entity];
+    
+    if (!this.entity || !this.entity.attributes?.aqi) {
+      return html`<div class="aqi-card">暂无空气质量数据</div>`;
+    }
+
+    const aqi = this.entity.attributes.aqi;
+    const theme = this._evaluateTheme();
+    const isDark = theme === 'on';
+    
+    const textcolor = isDark ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const themeClass = isDark ? 'light-theme' : 'dark-theme';
+    
+    // 获取AQI数值和等级
+    const aqiValue = aqi.aqi || aqi.value || 0;
+    const category = aqi.category || '未知';
+    const level = aqi.level || '未知';
+    const pm25 = aqi.pm2p5 || 0;
+    const pm10 = aqi.pm10 || 0;
+    const so2 = aqi.so2 || 0;
+    const no2 = aqi.no2 || 0;
+    const co = aqi.co || 0;
+    const o3 = aqi.o3 || 0;
+    
+    const aqiColor = this._getAqiColor(category);
+
+    return html`
+      <div class="aqi-card ${themeClass}">
+          <div class="aqi-modal-header">
+            <h2 style="color: ${textcolor};">天气指数数据</h2>
+            <button class="indices-close-btn" @click="${() => this._toggleAqiClose()}"></button>
+          </div>
+        <!-- AQI总览 -->
+        <div class="aqi-overview">
+          <div class="aqi-main-value">
+            <div class="aqi-value" style="color: ${aqiColor};">${aqiValue}</div>
+            <div class="aqi-category" style="color: ${aqiColor};">${category} (${level}级)</div>
+          </div>
+        </div>
+        
+        <!-- 污染物详情 -->
+        <div class="pollutants-grid">
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">PM2.5</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${pm25} μg/m³</div>
+          </div>
+          
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">PM10</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${pm10} μg/m³</div>
+          </div>
+          
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">SO₂</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${so2} μg/m³</div>
+          </div>
+          
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">NO₂</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${no2} μg/m³</div>
+          </div>
+          
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">CO</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${co} mg/m³</div>
+          </div>
+          
+          <div class="pollutant-item">
+            <div class="pollutant-name" style="color: ${textcolor};">O₃</div>
+            <div class="pollutant-value" style="color: ${textcolor};">${o3} μg/m³</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  setConfig(config) {
+    if (!config.entity) {
+      throw new Error('需要指定天气实体');
+    }
+    this.config = config;
+  }
+
+  getCardSize() {
+    return 3;
+  }
+}
+customElements.define('xiaoshi-aqi-weather-card', XiaoshiAqiWeatherCard);
+
+class XiaoshiIndicesWeatherCard extends LitElement {
+  static get properties() {
+    return {
+      hass: { type: Object },
+      config: { type: Object },
+      entity: { type: Object }
+    };
+  }
+
+  static get styles() {
+    return css`
+      :host {
+        display: block;
+      }
+
+      .indices-card {
+        position: relative;
+        border-radius: 15px;
+        padding: 16px;
+        font-family: sans-serif;
+        overflow: hidden;
+      }
+
+      .indices-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: -10px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid rgba(150, 150, 150, 0.4);
+        padding-bottom: 10px;
+      }
+
+      .indices-modal-header h2 {
+        margin: 20px 20px 5px 20px;
+        font-size: 20px;
+        font-weight: bold;
+      }      
+
+      .indices-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: rgba(255, 100, 0);
+        margin-right: 10px;
+        padding: 5px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+
+      .indices-close-btn:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(255, 0, 0);
+      }
+
+      /* 指数网格 */
+      .indices-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+
+      .index-item {
+        padding: 12px;
+        border-radius: 8px;
+      }
+
+      .index-header {
+        margin-bottom: 4px;
+      }
+
+      .index-name {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      .index-level {
+        font-size: 12px;
+      }
+
+      .index-description {
+        font-size: 10px;
+        opacity: 0.8;
+        line-height: 1.4;
+      }
+    `;
+  }
+
+  constructor() {
+    super();
+  }
+
+  _evaluateTheme() {
+    try {
+      if (!this.config || !this.config.theme) return 'on';
+      if (typeof this.config.theme === 'function') {
+          return this.config.theme();
+      }
+      if (typeof this.config.theme === 'string') {
+          // 处理Home Assistant模板语法 [[[ return theme() ]]]
+          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
+              // 提取模板中的JavaScript代码
+              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
+              if (match && match[1]) {
+                  const code = match[1].trim();
+                  // 如果代码以return开头，直接执行
+                  if (code.startsWith('return')) {
+                      return (new Function(code))();
+                  }
+                  // 否则包装在return中执行
+                  return (new Function(`return ${code}`))();
+              }
+          }
+          // 处理直接的JavaScript函数字符串
+          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
+              return (new Function(`return ${this.config.theme}`))();
+          }
+      }
+      return this.config.theme;
+    } catch(e) {
+      console.error('计算主题时出错:', e);
+      return 'on';
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // 处理通过属性传递的数据
+    this._parseAttributeData();
+    this._updateEntities();
+  }
+
+  updated(changedProperties) {
+    super.updated(changedProperties);
+    if (changedProperties.has('config') || changedProperties.has('hass')) {
+      // 处理通过属性传递的数据
+      this._parseAttributeData();
+      this._updateEntities();
+    }
+  }
+
+  _updateEntities() {
+    if (!this.hass || !this.config) return;
+
+    this.entity = this.hass.states[this.config.entity];
+  }
+
+  _parseAttributeData() {
+    // 从hass-hass属性解析数据
+    const hassAttr = this.getAttribute('hass-hass');
+    if (hassAttr && !this.hass) {
+      try {
+        this.hass = JSON.parse(decodeURIComponent(hassAttr));
+      } catch (e) {
+        console.error('Failed to parse hass attribute:', e);
+      }
+    }
+
+    // 从hass-config属性解析配置数据
+    const configAttr = this.getAttribute('hass-config');
+    if (configAttr && !this.config) {
+      try {
+        this.config = JSON.parse(decodeURIComponent(configAttr));
+      } catch (e) {
+        console.error('Failed to parse config attribute:', e);
+      }
+    }
+  }
+
+  _toggleIndicesClose() {
+    // 关闭小时天气弹窗
+    if (window.browser_mod) {
+      window.browser_mod.service('close_popup');
+    } else {
+      // 如果没有 browser_mod，尝试查找并关闭弹窗
+      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
+      if (modal) {
+        modal.remove();
+      }
+    }
+  }
+
+  render() {
+    if (!this.hass || !this.config) return html``;
+    
+    this.entity = this.hass.states[this.config.entity];
+    
+    if (!this.entity || !this.entity.attributes?.air_indices) {
+      return html`<div class="indices-card">暂无天气指数数据</div>`;
+    }
+
+    const indices = this.entity.attributes.air_indices;
+    const theme = this._evaluateTheme();
+    const isDark = theme === 'on';
+    
+    const textcolor = isDark ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const textcolor2 = isDark ? 'rgba(23, 140, 5, 1)' : 'rgba(10, 231, 47, 1)';
+    const backgroundColor = isDark ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const backgroundColor2 = isDark ? 'rgba(50, 50, 50,0.1)' : 'rgba(255, 255, 255,0.1)';
+
+    return html`
+      <div class="indices-card" style="background: ${backgroundColor};">
+          <div class="indices-modal-header">
+            <h2 style="color: ${textcolor};">天气指数数据</h2>
+            <button class="indices-close-btn" @click="${() => this._toggleIndicesClose()}"></button>
+          </div>
+
+        <!-- 指数列表 -->
+        <div class="indices-grid">
+          ${indices.map(index => html`
+            <div class="index-item" style="background: ${backgroundColor2};">
+              <div class="index-header">
+                <span class="index-name" style="color: ${textcolor2};">${index.name} </span>
+                <span class="index-level" style="color: ${textcolor};">等级:${index.level} ${index.category}</span>
+              </div>
+
+              <div class="index-description" style="color: ${textcolor};">
+                ${index.text}
+              </div>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
+  setConfig(config) {
+    if (!config.entity) {
+      throw new Error('需要指定天气实体');
+    }
+    this.config = config;
+  }
+
+  getCardSize() {
+    return 4;
+  }
+}
+customElements.define('xiaoshi-indices-weather-card', XiaoshiIndicesWeatherCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push(
