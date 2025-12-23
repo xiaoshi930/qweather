@@ -2588,6 +2588,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         height: 12px;
         font-size: 12px;
         margin-top: 0px;
+        white-space: nowrap;
       }
         
       /*天气行*/
