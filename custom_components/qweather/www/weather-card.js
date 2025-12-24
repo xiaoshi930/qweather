@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 3.1   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 3.2   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -2883,6 +2883,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         font-weight: 600;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         z-index: 4;
+        margin-top: -5px;
       }
 
       /* 圆点模式样式 */
@@ -2920,7 +2921,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .dot-mode .temp-curve-low {
         background: rgba(3, 169, 243);
-        margin-top: -7px;
+        margin-top: -6.5px;
       }
 
       /* 圆点上方的温度文字 */
@@ -3657,7 +3658,6 @@ class XiaoshiWeatherPadCard extends LitElement {
           const isYesterday = weekday !== '昨天' && weekday !== '前天';
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
-   
           const hightbackground = isYesterday ? 
                 'linear-gradient(to bottom,rgba(255, 87, 34) 0%,rgba(255, 152, 0) 100%)':
                 theme === 'on' ? 
