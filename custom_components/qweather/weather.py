@@ -618,7 +618,7 @@ class WeatherData(object):
         self.daily_url = f"https://{self._host}/v7/weather/10d?location={self._location}&lang=zh"
         self.air_url = f"https://{self._host}/airquality/v1/current/{self._location.split(',')[1].strip()}/{self._location.split(',')[0].strip()}?lang=zh"
         self.hourly_url = f"https://{self._host}/v7/weather/24h?location={self._location}&lang=zh"
-        self.warning_url = f"https://{self._host}/v7/warning/now?location={self._location}&lang=zh"
+        self.warning_url = f"https://{self._host}/weatheralert/v1/current/{self._location.split(',')[1].strip()}/{self._location.split(',')[0].strip()}?lang=zh"
         self.sun_url = f"https://{self._host}/v7/astronomy/sun?location={self._location}&date={self._todaydate}&lang=zh"
         self.indices_url = f"https://{self._host}/v7/indices/1d?type=0&location={self._location}&lang=zh"
         self.yesterday_url = None  # 将在获取到LocationID后动态设置
@@ -689,6 +689,76 @@ class WeatherData(object):
             
         except Exception as e:
             _LOGGER.error(f"空气质量数据格式转换失败: {str(e)}")
+            return None
+
+    def _convert_new_warning_format_to_old(self, new_data):
+        """将新的预警API格式转换为旧格式"""
+        # 首先检查输入数据是否有效
+        if not new_data or not isinstance(new_data, dict):
+            _LOGGER.debug("预警数据为空或格式不正确")
+            return None
+        
+        try:
+            # 检查是否有无预警结果
+            if new_data.get('metadata', {}).get('zeroResult', False):
+                _LOGGER.debug("当前区域无预警信息")
+                return None
+            
+            # 获取预警列表
+            alerts = new_data.get('alerts', [])
+            if not alerts:
+                _LOGGER.debug("预警列表为空")
+                return None
+            
+            # 颜色代码到中文级别的映射
+            color_level_mapping = {
+                "white": "白色",
+                "gray": "灰色", 
+                "green": "绿色",
+                "blue": "蓝色",
+                "yellow": "黄色",
+                "amber": "琥珀色",
+                "orange": "橙色",
+                "red": "红色",
+                "purple": "紫色",
+                "black": "黑色"
+            }
+            
+            # 转换为旧格式
+            old_format_list = []
+            for alert in alerts:
+                # 获取颜色代码并转换为中文级别
+                color_code = ""
+                level_cn = ""
+                if isinstance(alert.get("color"), dict):
+                    color_code = alert.get("color", {}).get("code", "")
+                    level_cn = color_level_mapping.get(color_code, "")
+                
+                old_format_warning = {
+                    "id": alert.get("id", ""),
+                    "sender": alert.get("senderName", ""),
+                    "pubTime": alert.get("issuedTime", ""),
+                    "title": alert.get("headline", ""),
+                    "startTime": alert.get("effectiveTime", ""),
+                    "endTime": alert.get("expireTime", ""),
+                    "status": "active",  # 新API中没有status字段，默认为active
+                    "level": level_cn,  # 使用转换后的中文级别
+                    "severity": alert.get("severity", ""),
+                    "severityColor": color_code,
+                    "type": alert.get("eventType", {}).get("code", "") if isinstance(alert.get("eventType"), dict) else "",
+                    "typeName": alert.get("eventType", {}).get("name", "") if isinstance(alert.get("eventType"), dict) else "",
+                    "urgency": "",
+                    "certainty": "",
+                    "text": alert.get("description", ""),
+                    "related": ""
+                }
+                old_format_list.append(old_format_warning)
+            
+            # 返回包含warning字段的字典，保持与旧API结构一致
+            return {"warning": old_format_list}
+            
+        except Exception as e:
+            _LOGGER.error(f"预警数据格式转换失败: {str(e)}")
             return None
 
     def validate_location(location):
@@ -837,6 +907,13 @@ class WeatherData(object):
                     if url == self.now_url and 'code' in json_data:
                         self._responsecode = json_data.get("code")
                     
+                    # 处理预警API的无数据情况
+                    if url == self.warning_url and json_data.get('metadata', {}).get('zeroResult', False):
+                        _LOGGER.debug("预警API返回无数据，设置为空列表")
+                        setattr(self, data_attr, None)
+                        setattr(self, update_attr, current_time)
+                        return True
+                    
                     if json_key:
                         data = json_data.get(json_key)
                         if data is None:
@@ -879,7 +956,7 @@ class WeatherData(object):
                 tasks.append(fetch_data(self.hourly_url, '_updatetime_hourly', '_hourly_data', min_intervals['hourly'], 'hourly', force_update))
             if self._enable_warning:
                 _LOGGER.debug(f"添加预警API任务: {self.warning_url}")
-                tasks.append(fetch_data(self.warning_url, '_updatetime_warning', '_warning_data', min_intervals['warning'], 'warning', force_update))
+                tasks.append(fetch_data(self.warning_url, '_updatetime_warning', '_warning_data', min_intervals['warning'], None, force_update))
             if self._enable_sun:
                 _LOGGER.debug(f"添加日出日落API任务: {self.sun_url}")
                 tasks.append(fetch_data(self.sun_url, '_updatetime_sun', '_sun_data', min_intervals['sun'], 'sun', force_update))
@@ -1143,9 +1220,20 @@ class WeatherData(object):
         # 处理天气预警
         self._weather_warning = []
         if self._warning_data:
-            if isinstance(self._warning_data, dict) and 'warning' in self._warning_data:
+            # 检查是否为新API格式（包含metadata字段）
+            if isinstance(self._warning_data, dict) and 'metadata' in self._warning_data:
+                # 新API格式，需要转换
+                converted_data = self._convert_new_warning_format_to_old(self._warning_data)
+                if converted_data and 'warning' in converted_data:
+                    warning_list = converted_data['warning']
+                else:
+                    warning_list = []
+                    _LOGGER.debug("无预警数据或转换失败")
+            elif isinstance(self._warning_data, dict) and 'warning' in self._warning_data:
+                # 旧API格式
                 warning_list = self._warning_data['warning']
             elif isinstance(self._warning_data, list):
+                # 直接是预警列表
                 warning_list = self._warning_data
             else:
                 warning_list = []
