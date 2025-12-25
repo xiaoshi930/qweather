@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 3.2   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 3.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -132,10 +132,35 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
           </select>
         </div>
         
+       
+        <div class="form-group conditional-field ${this.config.mode === '搜索城市' ? 'visible' : ''}" id="city-entity-group">
+          <label>搜索城市text实体</label>
+          <div class="entity-search-container">
+            <input 
+              type="text" 
+              .value=${this.config.city_entity || 'text.set_city'}
+              @input=${this._onCityEntityInput}
+              @change=${this._entityChanged}
+              name="city_entity"
+              placeholder="搜索城市text实体（如 text.set_city）"
+              list="city-entities"
+            />
+            <datalist id="city-entities">
+              ${Object.keys(this.hass.states)
+                .filter(entityId => 
+                  entityId.startsWith('text.') ||
+                  entityId.toLowerCase().includes('city') ||
+                  entityId.toLowerCase().includes('城市')
+                )
+                .map(entityId => html`
+                  <option value="${entityId}">
+                    ${this.hass.states[entityId].attributes.friendly_name || entityId}
+                  </option>
+                `)}
+            </datalist>
+          </div>
+        </div>
 
-
-
-        
         <div class="form-group">
           <label>是否实体替换实时温湿度</label>
           <select 
@@ -210,7 +235,7 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
 
   _entityChanged(e) {
     const { name, value } = e.target;
-    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'visual_style') return;
+    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'city_entity' && name !== 'visual_style') return;
 
     let processedValue = value;
     if (name === 'columns' ) {
@@ -225,7 +250,7 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
     };
 
     // 处理条件字段的显示/隐藏
-    if (name === 'use_custom_entities') {
+    if (name === 'use_custom_entities' || name === 'mode') {
       this._updateConditionalFields();
     }
 
@@ -239,10 +264,12 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
   _updateConditionalFields() {
     // 更新条件字段的显示状态
     const useCustomEntities = this.config.use_custom_entities;
+    const mode = this.config.mode;
     
     // 获取条件字段元素
     const tempGroup = this.shadowRoot?.getElementById('temperature-entity-group');
     const humidityGroup = this.shadowRoot?.getElementById('humidity-entity-group');
+    const cityGroup = this.shadowRoot?.getElementById('city-entity-group');
     
     if (tempGroup) {
       if (useCustomEntities) {
@@ -263,6 +290,16 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
         delete this.config.humidity_entity;
       }
     }
+    
+    if (cityGroup) {
+      if (mode === '搜索城市') {
+        cityGroup.classList.add('visible');
+      } else {
+        cityGroup.classList.remove('visible');
+        // 如果不是搜索城市模式，清空配置
+        delete this.config.city_entity;
+      }
+    }
   }
 
   _onTemperatureEntityInput(e) {
@@ -278,6 +315,14 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
     this.config = {
       ...this.config,
       humidity_entity: e.target.value
+    };
+  }
+
+  _onCityEntityInput(e) {
+    // 实时更新配置值，但不触发配置更改事件
+    this.config = {
+      ...this.config,
+      city_entity: e.target.value
     };
   }
 
@@ -314,6 +359,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return {
       hass: { type: Object },
       config: { type: Object },
+      city_entity: { type: Object },
       entity: { type: Object },
       mode: { type: String },
       forecastMode: { type: String }, // 'daily' 或 'hourly'
@@ -861,6 +907,63 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         transition: all 0.3s ease;
         animation: slideDown 0.3s ease-out;
       }
+      .input-container {
+        display: flex;
+        align-items: center;
+        padding: 0;
+        height: 100%;
+        transition: all 0.3s ease;
+      } 
+      .input-container.on {
+        background-color: rgb(255,255,255);
+        color: black;
+      }
+      .input-container.off {
+        background-color: rgb(50,50,50);
+        color: white;
+      }
+      .icon {
+        margin-right: 0.5rem;
+        font-size: 1.2rem;
+        margin-left: 0.5rem;
+      }
+      .input-wrapper {
+        flex-grow: 1;
+        position: relative;
+      }
+      input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 1rem;
+        padding: 0.5rem 0;
+        outline: none;
+      }
+      .placeholder {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        color: gray;
+        pointer-events: none;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+        opacity: 1;
+      }
+      input:focus + .placeholder,
+      input:not(:placeholder-shown) + .placeholder,
+      .placeholder.hidden {
+        top: 0;
+        transform: translateY(0);
+        font-size: 0.7rem;
+        opacity: 0;
+      }
+
+      .input-gap {
+        height: 8px;
+        minheight: 8px;
+      }
 
     `;
   }
@@ -868,6 +971,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   constructor() {
     super();
     this.mode = '家';
+    this.city_entity ='text.set_city';
     this.forecastMode = 'daily'; // 默认显示每日天气
     this.showWarningDetails = false;
     this.showApiInfo = false;
@@ -875,6 +979,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     this.warningTimer = null;
     this.apiTimer = null;
     this.indicesTimer = null;
+    this._value = '';
+    this._isEditing = false;
+    this._pendingSave = false;
   }
   
   _evaluateTheme() {
@@ -927,6 +1034,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     this.entity = this.hass.states[this.config.entity];
     this.mode = this.config.mode || 'home';
+    this.city_entity =  this.hass.states[this.config.city_entity] || 'text.set_city';
   }
 
   _getWeatherIcon(condition) {
@@ -1531,9 +1639,24 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   } 
 
   render() {
-    if (!this.entity || this.entity.state === 'unavailable') {
-      return html`<div class="unavailable"></div>`;
+    if (this.mode !== "搜索城市" && (!this.entity || this.entity.state === 'unavailable')) {
+      return html`<div class="unavailable"> </div>`;
     }
+
+    else if (this.mode !== "搜索城市" && (this.entity || this.entity.state !== 'unavailable')) {
+      return this._rendermain();
+    }
+
+    else if (this.mode === "搜索城市" && (!this.entity || this.entity.state === 'unavailable')) {
+      return  html`${this._renderInput()}`;
+    }
+
+    else if (this.mode === "搜索城市" && (this.entity || this.entity.state !== 'unavailable')) {
+      return html`${this._rendermain()} <div class="input-gap"> </div> ${this._renderInput()}`;
+    }
+  }
+
+  _rendermain(){
     // 获取自定义或默认的温度和湿度
     const customTemp = this._getCustomTemperature();
     const customHumidity = this._getCustomHumidity();
@@ -1646,8 +1769,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
               </div>
             </div>
           ` : ''}
-        </div>
-
+        </div>  
       </div>
     `;
   }
@@ -1977,36 +2099,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     `;
   }
 
-  _renderHourlyWindInfo(hourlyForecast) {
-    const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
-    return html`
-      ${hourlyForecast.map(hour => {
-        const windSpeedRaw = hour.windscaleday || 0;
-        let windSpeed = windSpeedRaw;
-        
-        // 如果风速是 "4-5" 格式，取最大值
-        if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
-          const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
-          if (speeds.length === 2 && !isNaN(speeds[0]) && !isNaN(speeds[1])) {
-            windSpeed = Math.max(speeds[0], speeds[1]);
-          }
-        }
-        
-        const windDirection = hour.wind_bearing || 0;
-        
-        return html`
-          <div class="forecast-wind-container">
-            <div class="forecast-wind" style="color: ${secondaryColor};">
-              <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
-              <span>${windSpeed}级</span>
-            </div>
-          </div>
-        `;
-      })}
-    `;
-  }
-
   _getWindDirectionIcon(bearing) {
     // 0是北风，按顺时针方向增加
     const directions = [
@@ -2036,6 +2128,36 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     });
 
     return direction ? direction.icon : '↓';
+  }
+
+  _renderHourlyWindInfo(hourlyForecast) {
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    return html`
+      ${hourlyForecast.map(hour => {
+        const windSpeedRaw = hour.windscaleday || 0;
+        let windSpeed = windSpeedRaw;
+        
+        // 如果风速是 "4-5" 格式，取最大值
+        if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
+          const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
+          if (speeds.length === 2 && !isNaN(speeds[0]) && !isNaN(speeds[1])) {
+            windSpeed = Math.max(speeds[0], speeds[1]);
+          }
+        }
+        
+        const windDirection = hour.wind_bearing || 0;
+        
+        return html`
+          <div class="forecast-wind-container">
+            <div class="forecast-wind" style="color: ${secondaryColor};">
+              <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
+              <span>${windSpeed}级</span>
+            </div>
+          </div>
+        `;
+      })}
+    `;
   }
 
   _renderWarningDetails() {
@@ -2193,6 +2315,71 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  _renderInput(){
+    if (!this.config || !this.hass ) return html``;
+    const cityEntity = this.city_entity || 'text.set_city';
+    const currentValue = this.hass.states[cityEntity].state;
+    if (!this._isEditing && this._value !== currentValue) {
+      this._value = currentValue;
+    }
+    const theme = this._evaluateTheme();
+    const themeClass = theme === 'off' ? 'off' : 'on';
+    const showPlaceholder = !this._value && !this._isEditing;
+
+    return html`
+      <div class="input-container ${themeClass}" \n
+           style="width: ${this.config.width}; height: 12vw ;border-radius: 3vw;">
+        <div class="icon">
+          <ha-icon icon="mdi:magnify"></ha-icon>
+        </div>
+        <div class="input-wrapper">
+          <input
+            type="text"\n
+            .value=${this._value}\n
+            @input=${this._handleInput}\n
+            @keydown=${this._handleKeyDown}\n
+            @focus=${() => this._isEditing = true}\n
+            @blur=${this._handleBlur}\n
+            placeholder=" "
+          />
+          <div class="placeholder ${!showPlaceholder ? 'hidden' : ''}">等待设置搜索的城市...</div>
+        </div>
+      </div>
+    `;
+  }
+
+  _handleInput(e) {
+    this._value = e.target.value;
+    this._isEditing = true;
+  }
+
+  _handleKeyDown(e) {
+    if (e.key === 'Enter' && this.city_entity) {
+      this._pendingSave = true;
+      this._setEntityValue();
+      this._isEditing = false;
+      e.target.blur();
+    }
+  }
+
+  _handleBlur() {
+    this._isEditing = false;
+    if (!this._pendingSave && this.city_entity) {
+      this._setEntityValue();
+    }
+    this._pendingSave = false;
+  }
+
+  _setEntityValue() {
+    if (!this.city_entity) return; 
+    
+    this.hass.callService('text', 'set_value', {
+      entity_id: this.city_entity,
+      value: this._value,
+    });
+
   }
 
   setConfig(config) {
@@ -2408,6 +2595,34 @@ class XiaoshiWeatherPadEditor extends LitElement {
             </datalist>
           </div>
         </div>
+        
+        <div class="form-group conditional-field ${this.config.mode === '搜索城市' ? 'visible' : ''}" id="city-entity-group">
+          <label>城市文本实体</label>
+          <div class="entity-search-container">
+            <input 
+              type="text" 
+              .value=${this.config.city_entity || 'text.set_city'}
+              @input=${this._onCityEntityInput}
+              @change=${this._entityChanged}
+              name="city_entity"
+              placeholder="搜索城市文本实体（如 text.set_city）"
+              list="city-entities"
+            />
+            <datalist id="city-entities">
+              ${Object.keys(this.hass.states)
+                .filter(entityId => 
+                  entityId.startsWith('text.') ||
+                  entityId.toLowerCase().includes('city') ||
+                  entityId.toLowerCase().includes('城市')
+                )
+                .map(entityId => html`
+                  <option value="${entityId}">
+                    ${this.hass.states[entityId].attributes.friendly_name || entityId}
+                  </option>
+                `)}
+            </datalist>
+          </div>
+        </div>
          
       </div>
     `;
@@ -2436,7 +2651,7 @@ class XiaoshiWeatherPadEditor extends LitElement {
     };
     
     // 处理条件字段的显示/隐藏
-    if (name === 'use_custom_entities') {
+    if (name === 'use_custom_entities' || name === 'mode') {
       this._updateConditionalFields();
     }
     
@@ -2450,10 +2665,12 @@ class XiaoshiWeatherPadEditor extends LitElement {
   _updateConditionalFields() {
     // 更新条件字段的显示状态
     const useCustomEntities = this.config.use_custom_entities;
+    const mode = this.config.mode;
     
     // 获取条件字段元素
     const tempGroup = this.shadowRoot?.getElementById('temperature-entity-group');
     const humidityGroup = this.shadowRoot?.getElementById('humidity-entity-group');
+    const cityGroup = this.shadowRoot?.getElementById('city-entity-group');
     
     if (tempGroup) {
       if (useCustomEntities) {
@@ -2474,6 +2691,16 @@ class XiaoshiWeatherPadEditor extends LitElement {
         delete this.config.humidity_entity;
       }
     }
+    
+    if (cityGroup) {
+      if (mode === '搜索城市') {
+        cityGroup.classList.add('visible');
+      } else {
+        cityGroup.classList.remove('visible');
+        // 如果不是搜索城市模式，清空配置
+        delete this.config.city_entity;
+      }
+    }
   }
 
   _onTemperatureEntityInput(e) {
@@ -2489,6 +2716,14 @@ class XiaoshiWeatherPadEditor extends LitElement {
     this.config = {
       ...this.config,
       humidity_entity: e.target.value
+    };
+  }
+
+  _onCityEntityInput(e) {
+    // 实时更新配置值，但不触发配置更改事件
+    this.config = {
+      ...this.config,
+      city_entity: e.target.value
     };
   }
 
