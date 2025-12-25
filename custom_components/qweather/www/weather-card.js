@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 3.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 3.4   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -341,7 +341,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   static get TEMPERATURE_CONSTANTS() {
     return {
       BUTTON_HEIGHT_VW: 3.4,        // 温度矩形高度（vw）
-      CONTAINER_HEIGHT_VW: 22,       // 温度容器总高度（vw）
+      CONTAINER_HEIGHT_VW: 21,       // 温度容器总高度（vw）
       FORECAST_COLUMNS: 9,          // 预报列数
     };
   }
@@ -570,7 +570,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /*9日天气部分 温度区域*/
       .forecast-temp-container {
         position: relative;
-        height: 22vw;
+        height: 21vw;
         margin-top: 0;
         margin-bottom: 0;
         white-space: nowrap;
@@ -682,12 +682,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .temp-line-canvas-high {
         top: 7.7vw;
-        height: 22vw; 
+        height: 21vw; 
       }
 
       .temp-line-canvas-low {
         top: 7.7vw;
-        height: 22vw; 
+        height: 21vw; 
       }
 
       .temp-curve-high {
@@ -729,7 +729,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         height: 1vw;
         border-radius: 50%;
         left: calc(50% - 0.5vw);
-        margin-top: -0.7vw;
+        margin-top: -0.65vw;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -835,6 +835,21 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         white-space: nowrap;
         height: 4vw;
         margin-bottom: 0.5vw;
+      }
+
+      /*预警文本滚动容器*/
+      .warning-text-container1 {
+        display: flex;
+        width: 97%;
+        font-size: 2.2vw;
+        line-height: 3vw;
+        align-items: center;
+        margin: 0.5vw 2vw;
+      }
+
+      /*预警文本滚动内容*/
+      .warning-text-scroll1 {
+        padding-left: 100%;
       }
 
       /*预警文本滚动容器*/
@@ -1543,6 +1558,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     });
   }
 
+  _getWarningColorForLevel(level) {
+    if (level == "红色") return "rgb(255,50,50)";
+    if (level == "橙色") return "rgb(255,100,0)";
+    if (level == "黄色") return "rgb(255,200,0)";
+    if (level == "蓝色") return "rgb(50,150,200)";
+    
+    return "#FFA726"; // 默认颜色
+  }
+
   _getWarningColor(warning) {
     if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
     
@@ -2166,16 +2190,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     }
 
     const warning = this.entity.attributes.warning;
-    const cardHeight = `${warning.length * 8}vw`;
-    const warningColor = this._getWarningColor(warning);
     const theme = this._evaluateTheme();
     const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
     const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     return html`
-      <div class="warning-details-card" style="height: ${cardHeight}; background-color: ${backgroundColor};">
+      <div class="warning-details-card" style=" background-color: ${backgroundColor};">
         ${warning.map((warningItem, index) => {
           const typeName = warningItem.typeName ?? "";
           const level = warningItem.level ?? "";
+          const warningColor = this._getWarningColorForLevel(level);
           const sender = warningItem.sender ?? "";
           const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 10) : "";
           const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 10) : "";
@@ -2190,10 +2213,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
               </div>
               
               <!-- 第二行：预警文本滚动 -->
-              <div class="warning-text-container" style="color: ${textcolor}; ">
-                <div class="warning-text-scroll" style="animation-duration: ${scrollDuration}s;">
+              <div class="warning-text-container1" style="color: ${textcolor}; ">
+               
                   <span>${text}</span>
-                </div>
+               
               </div>
             </div>
           `;
