@@ -931,8 +931,14 @@ class WeatherData(object):
                         setattr(self, update_attr, current_time)
                         _LOGGER.info(f"成功访问API: {url}")
                         return True
+            except asyncio.TimeoutError as e:
+                # 超时时不更新时间戳，允许下次重试
+                _LOGGER.warning("API请求超时 (%s): %s，下次更新将重试", url, str(e))
+                return False
             except (aiohttp.ClientError, ValueError) as e:
+                # 其他错误也不更新时间戳，但记录错误
                 _LOGGER.warning("API请求失败 (%s): %s", url, str(e))
+                return False
             return False
         
         async with aiohttp.ClientSession(
@@ -965,9 +971,32 @@ class WeatherData(object):
                 tasks.append(fetch_data(self.indices_url, '_updatetime_indices', '_air_indices', min_intervals['indices'], 'daily', force_update))
           
             
-            # 执行所有任务（除了昨日天气）
-            results = await asyncio.gather(*tasks)
+            # 执行所有任务（除了昨日天气）- 使用 return_exceptions=True 防止单个失败影响整体
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             _LOGGER.debug("API更新结果: %s", results)
+            
+            # 检查结果中的异常并记录
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    # 根据任务索引确定是哪个API失败了
+                    api_names = ["now", "daily", "geo"]
+                    if self._enable_air:
+                        api_names.append("air")
+                    if self._enable_hourly:
+                        api_names.append("hourly")
+                    if self._enable_warning:
+                        api_names.append("warning")
+                    if self._enable_sun:
+                        api_names.append("sun")
+                    if self._enable_indices:
+                        api_names.append("indices")
+                    
+                    api_name = api_names[i] if i < len(api_names) else f"task_{i}"
+                    _LOGGER.warning(f"API请求失败 ({api_name}): {str(result)}")
+                    
+                    # 如果是超时异常，不更新时间戳以便下次重试
+                    if "TimeoutError" in str(type(result)) or "timeout" in str(result).lower():
+                        _LOGGER.info(f"API ({api_name}) 超时，下次更新时将重试")
             
             # 处理geo数据获取LocationID，然后设置昨日天气URL并调用
             if self._geo_data and isinstance(self._geo_data, dict) and 'location' in self._geo_data and self._geo_data['location']:
