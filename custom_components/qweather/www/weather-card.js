@@ -373,6 +373,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return css`
       :host {
         display: block;
+        background: transparent;
+        --ha-card-background: transparent;
+        --mdc-theme-surface: transparent;
       }
 
       /*主卡片样式*/
@@ -1100,16 +1103,25 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _getWeekday(date) {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    const today = new Date();
     
-    // 重置时间到午夜，只比较日期
-    const resetTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const targetDate = resetTime(date);
-    const todayDate = resetTime(today);
+    // 如果传入的是字符串且格式为 YYYY-MM-DD，手动解析以避免时区问题
+    let targetDate;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const [y, m, d] = date.split('-').map(Number);
+        targetDate = new Date(y, m - 1, d);
+    } else {
+        // 兼容 Date 对象或非标准字符串
+        const d = new Date(date);
+        targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
     // 计算日期差（毫秒）
     const diffTime = targetDate - todayDate;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // 使用 Math.round 避免浮点数精度问题
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
     // 根据日期差返回相应的文本
     if (diffDays === -2) {
@@ -1124,7 +1136,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       return '后天';
     }  else {
       // 其他日期返回星期几
-      return weekdays[date.getDay()];
+      return weekdays[targetDate.getDay()];
     }
   }
 
@@ -1704,7 +1716,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     // 获取颜色
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
-    const bgColor = theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)';
+    const bgColor = this.config.card_bg_color || (theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)');
     const secondaryColor = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
@@ -1836,8 +1848,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         <canvas class="temp-line-canvas temp-line-canvas-low" id="low-temp-canvas-${this._getInstanceId()}"></canvas>
         
         ${forecastDays.map((day, index) => {
-          const date = new Date(day.datetime);
-          const weekday = this._getWeekday(date);
+          let date;
+          if (typeof day.datetime === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day.datetime)) {
+              const [y, m, d] = day.datetime.split('-').map(Number);
+              date = new Date(y, m - 1, d);
+          } else {
+              date = new Date(day.datetime);
+          }
+          const weekday = this._getWeekday(day.datetime);
           const dateStr = `${date.getMonth() + 1}月${date.getDate()}日`;
           const highTemp = this._formatTemperature(day.native_temperature);
           const lowTemp = this._formatTemperature(day.native_temp_low);
@@ -2057,11 +2075,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return html`
       ${forecastDays.map(day => {
         // 如果是昨天，设置透明度 
-        const date = new Date(day.datetime);
-        const weekday = this._getWeekday(date);
+        const weekday = this._getWeekday(day.datetime);
         const isYesterday = weekday !== '昨天' && weekday !== '前天';
         const opacity = isYesterday ? 1 : 0.5;
-
         return html`
           <div class="forecast-icon-container" style="opacity: ${opacity}">
             <div class="forecast-icon">
@@ -2094,10 +2110,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       ${forecastDays.map(day => {
         const windSpeedRaw = day.windscaleday || 0;
         let windSpeed = windSpeedRaw;
-        
+
         // 如果是昨天，设置透明度 
-        const date = new Date(day.datetime);
-        const weekday = this._getWeekday(date);
+        const weekday = this._getWeekday(day.datetime);
         const isYesterday = weekday !== '昨天' && weekday !== '前天';
         const opacity = isYesterday ? 1 : 0.5;
 
@@ -2548,6 +2563,17 @@ class XiaoshiWeatherPadEditor extends LitElement {
             placeholder="260"
           />
         </div>
+
+        <div class="form-group">
+          <label>背景颜色 (可选)</label>
+          <input 
+            type="text" 
+            .value=${this.config.card_bg_color || ''}
+            @change=${this._entityChanged}
+            name="card_bg_color"
+            placeholder="例如: #FFFFFF 或 rgba(255,255,255,1)"
+          />
+        </div>
         
 
         
@@ -2655,7 +2681,7 @@ class XiaoshiWeatherPadEditor extends LitElement {
 
   _entityChanged(e) {
     const { name, value } = e.target;
-    if (!value && name !== 'theme' && name !== 'columns' && name !== 'width' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'visual_style') return;
+    if (!value && name !== 'theme' && name !== 'columns' && name !== 'width' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'visual_style' && name !== 'card_bg_color') return;
     
     let processedValue = value;
     if (name === 'columns' || name === 'width') {
@@ -2784,7 +2810,11 @@ class XiaoshiWeatherPadCard extends LitElement {
       hass: { type: Object },
       config: { type: Object },
       entity: { type: Object },
-      mode: { type: String }
+      mode: { type: String },
+      _showHourly: { type: Boolean, state: true },
+      _showWarning: { type: Boolean, state: true },
+      _showAqi: { type: Boolean, state: true },
+      _showIndices: { type: Boolean, state: true }
     };
   }
 
@@ -2792,6 +2822,91 @@ class XiaoshiWeatherPadCard extends LitElement {
     return css`
       :host {
         display: block;
+        background: transparent;
+      }
+
+      /* 模态框样式 */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(5px);
+      }
+
+      .modal-content {
+        width: 600px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        border-radius: 12px;
+        box-shadow: 
+          0 12px 48px rgba(0, 0, 0, 0.5), 
+          0 4px 12px rgba(0, 0, 0, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      .modal-content::-webkit-scrollbar {
+        display: none;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid rgba(51, 51, 51, 0.8);
+        flex-shrink: 0;
+      }
+
+      .modal-header h2, .modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      .modal-body::-webkit-scrollbar {
+        display: none;
+      }
+
+      .modal-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      }
+
+      .modal-close-btn:hover {
+        background: rgba(0, 0, 0, 0.1);
       }
 
       /*主卡片样式*/
@@ -2827,8 +2942,8 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*天气头部 图标*/
       .weather-icon {
-        width: 50px;
-        height: 50px;
+        width: 72px;
+        height: 72px;
         margin-right: 16px;
         margin-bottom: 0px;
       }
@@ -2840,24 +2955,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         object-fit: contain;
       }
 
-      /*天气头部 温度*/
-      .weather-temperature {
-        height: 30px;
-        font-size: 23px;
-        font-weight: bold;
-        margin-top: 0;
-        margin-bottom: 0;
-        white-space: nowrap;
-      }
 
-      /*天气头部 天气信息*/
-      .weather-info {
-        height: 12px;
-        font-size: 12px;
-        margin-top: 0px;
-        white-space: nowrap;
-      }
-        
       /*天气行*/
       .weather-row {
         display: flex;
@@ -2882,12 +2980,14 @@ class XiaoshiWeatherPadCard extends LitElement {
         justify-content: flex-start;
         flex: 1;
         width: 100%;
+        position: relative;
       }
 
       /*天气温度样式*/
       .weather-temperature {
-        height: 30px;
-        font-size: 23px;
+        height: 36px;
+        line-height: 36px;
+        font-size: 26px;
         font-weight: bold;
         margin-top: 0;
         margin-bottom: 0;
@@ -2895,11 +2995,14 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*天气信息样式*/
       .weather-info {
-        height: 15px;
-        font-size: 12px;
+        height: 36px;
+        line-height: 36px;
+        font-size: 16px;
         margin-top: 0;
         margin-bottom: 0;
         white-space: nowrap;
+        display: flex;
+        align-items: center;
       }
 
       .forecast-toggle-button {
@@ -2907,22 +3010,24 @@ class XiaoshiWeatherPadCard extends LitElement {
       }
 
       .toggle-btn {
-        padding: 2px 10px;
+        padding: 11px 24px;
         border: none;
-        border-radius: 6px;
-        font-size: 9px;
+        border-radius: 20px;
+        font-size: 16px;
         cursor: pointer;
         transition: all 0.3s ease;
         color: white;
         font-weight: bold;
         white-space: nowrap;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        line-height: 16px;
       }
 
       .toggle-btn-aqi {
         background: transparent;
         padding:0;
         border: none;
-        font-size: 12px;
+        font-size: 16px;
         cursor: pointer;
         transition: all 0.3s ease;
         font-weight: bold;
@@ -2952,23 +3057,23 @@ class XiaoshiWeatherPadCard extends LitElement {
         text-align: center;
         position: relative;
         border-radius: 8px;
-        padding: 5px;
+        padding: 3px;
         position: relative;
       }
 
       /*9日天气部分 星期*/
       .forecast-weekday {
-        font-size: 11px;
+        font-size: 16px;
         height: 14px;
         margin-top: -5px;
-        margin-bottom: 1px;
+        margin-bottom: 5px;
         font-weight: 500;
         white-space: nowrap;
       }
       
       /*9日天气部分 日期*/
       .forecast-date {
-        font-size: 8px;
+        font-size: 13px;
         margin-bottom: 15px;
         margin-left: 0px;
         margin-right: 0px;
@@ -3006,7 +3111,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       .forecast-rainfall {
         background: rgba(80, 177, 200);
         color: white;
-        font-size: 7px;
+        font-size: 12px;
         font-weight: bold;
         height: 12.5px;
         min-width: 80% ;
@@ -3067,7 +3172,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*9日天气部分 风速*/
       .forecast-wind {
-        font-size: 10px;
+        font-size: 15px;
         margin-top: 0;
         display: flex;
         align-items: center;
@@ -3078,7 +3183,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*9日天气部分 风速*/
       .wind-direction {
-        font-size: 9px;
+        font-size: 14px;
       }
 
       /*9日天气部分 温度曲线 Canvas*/
@@ -3333,16 +3438,25 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   _getWeekday(date) {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    const today = new Date();
     
-    // 重置时间到午夜，只比较日期
-    const resetTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const targetDate = resetTime(date);
-    const todayDate = resetTime(today);
+    // 如果传入的是字符串且格式为 YYYY-MM-DD，手动解析以避免时区问题
+    let targetDate;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const [y, m, d] = date.split('-').map(Number);
+        targetDate = new Date(y, m - 1, d);
+    } else {
+        // 兼容 Date 对象或非标准字符串
+        const d = new Date(date);
+        targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
     // 计算日期差（毫秒）
     const diffTime = targetDate - todayDate;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // 使用 Math.round 避免浮点数精度问题
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
     // 根据日期差返回相应的文本
     if (diffDays === -2) {
@@ -3357,7 +3471,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       return '后天';
     }  else {
       // 其他日期返回星期几
-      return weekdays[date.getDay()];
+      return weekdays[targetDate.getDay()];
     }
   }
 
@@ -3368,50 +3482,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   _toggleHourlyModal() {
-    // 使用 browser_mod 弹出独立的小时天气卡片
-    const popupStyle = this.config.popup_style || `
-      --mdc-theme-surface: rgb(0,0,0,0); 
-      --ha-card-background: rgb(0,0,0,0);
-      --ha-card-border-width: 0; 
-      --dialog-backdrop-filter: blur(10px) brightness(1);
-      --popup-min-width: 90vw;
-    `;
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme:  this._evaluateTheme(),
-        visual_style: this.config.visual_style,
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-hourly-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-hourly-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show hourly weather popup');
-    }
+    this._showHourly = true;
   }
 
   _getWarningColorForLevel(level) {
@@ -3440,144 +3511,15 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   _toggleWarningModal() {
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    const popupStyle = this.config.popup_style || `
-      --mdc-theme-surface: rgb(0,0,0,0); 
-      --ha-card-background: rgb(0,0,0,0);
-      --ha-card-border-width: 0; 
-      --dialog-backdrop-filter: blur(10px) brightness(1);
-      --popup-min-width: 90vw;
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-warning-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-warning-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+    this._showWarning = true;
   }
 
   _toggleApiInfo() {
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    const popupStyle = this.config.popup_style || `
-      --mdc-theme-surface: rgb(0,0,0,0); 
-      --ha-card-background: rgb(0,0,0,0);
-      --ha-card-border-width: 0; 
-      --dialog-backdrop-filter: blur(10px) brightness(1);
-      --popup-min-width: 90vw;
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-aqi-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-aqi-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+    this._showAqi = true;
   }
   
   _toggleIndicesDetails() {
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    const popupStyle = this.config.popup_style || `
-      --mdc-theme-surface: rgb(0,0,0,0); 
-      --ha-card-background: rgb(0,0,0,0);
-      --ha-card-border-width: 0; 
-      --dialog-backdrop-filter: blur(10px) brightness(1);
-      --popup-min-width: 90vw;
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-indices-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-indices-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+    this._showIndices = true;
   }
 
   _getAqiCategoryHtml() {
@@ -3906,8 +3848,14 @@ class XiaoshiWeatherPadCard extends LitElement {
         <canvas class="temp-line-canvas temp-line-canvas-low" id="low-temp-canvas-${this._getInstanceId()}"></canvas>
         
         ${forecastDays.map((day, index) => {
-          const date = new Date(day.datetime);
-          const weekday = this._getWeekday(date);
+          let date;
+          if (typeof day.datetime === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day.datetime)) {
+              const [y, m, d] = day.datetime.split('-').map(Number);
+              date = new Date(y, m - 1, d);
+          } else {
+              date = new Date(day.datetime);
+          }
+          const weekday = this._getWeekday(day.datetime);
           const dateStr = `${date.getMonth() + 1}月${date.getDate()}日`;
           const highTemp = this._formatTemperature(day.native_temperature);
           const lowTemp = this._formatTemperature(day.native_temp_low);
@@ -4025,9 +3973,9 @@ class XiaoshiWeatherPadCard extends LitElement {
     const sunRise = this.entity.attributes?.sun.sunrise || '';
     const sunSet = this.entity.attributes?.sun.sunset || '';
     // 获取颜色
-    const fgColor = 'rgb(255, 255, 255)';
-    const bgColor = 'rgb(255, 255, 255, 0)';
-    const secondaryColor = 'rgb(110, 190, 240)';
+    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const bgColor = this.config.card_bg_color || (theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)');
+    const secondaryColor = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
 
     const cardWidth = this.config?.width || 260;
     
@@ -4035,7 +3983,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     const isDotMode = visualStyle === 'dot';
     
     return html`
-      <div class="weather-card  dark-theme'} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: ${cardWidth}px; max-width: ${cardWidth}px; margin: 0 auto;">
+      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: ${cardWidth}px; max-width: ${cardWidth}px; margin: 0 auto;">
         <div class="main-content">
           <!-- 天气头部信息 -->
           <div class="weather-header">
@@ -4058,7 +4006,7 @@ class XiaoshiWeatherPadCard extends LitElement {
                 </div>
               </div>
               
-              <!-- 第二行：天气信息 + AQI | 指数按钮 + 小时按钮 -->
+              <!-- 第二行：天气信息 + AQI -->
               <div class="weather-row">
                 <div class="weather-info">
                   <span style="color: ${secondaryColor};">${condition}   
@@ -4066,20 +4014,18 @@ class XiaoshiWeatherPadCard extends LitElement {
                   </span>
                   ${this._getAqiCategoryHtml()}
                 </div>
-                <div class="weather-right-align">
-                  <div style="display: flex; justify-content: flex-end; align-items: center; gap: 5px">
-                    <!-- 指数 -->
-                    ${hassairindices ? html`
-                      <button class="toggle-btn daily-mode" style="background: rgba(5, 155, 10);" @click="${() => this._toggleIndicesDetails()}">
-                        指数
-                      </button>
-                    ` : ''}
-                    <!-- 24小时天气按钮 -->
-                    <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
-                      小时
-                    </button>
-                  </div>
-                </div>
+              </div>
+
+              <!-- 中间位置的右侧按钮（绝对定位于weather-right中） -->
+              <div class="weather-right-buttons" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px">
+                ${hassairindices ? html`
+                  <button class="toggle-btn daily-mode" style="background: rgba(5, 155, 10);" @click="${() => this._toggleIndicesDetails()}">
+                    指数
+                  </button>
+                ` : ''}
+                <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
+                  小时
+                </button>
               </div>
             </div>
           </div>
@@ -4089,7 +4035,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
         </div>
 
-        <div class="update-time" style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+        <div class="update-time" style="display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 8px 8px 0 8px;">
           <div>
             ${this._getRelativeTime(update_time)}  
           </div>
@@ -4097,17 +4043,74 @@ class XiaoshiWeatherPadCard extends LitElement {
           <!-- 日出日落信息 - 放在右侧 -->
           ${sunRise && sunSet ? html`
             <div class="sunrise-sunset-container" style="display: flex; align-items: center; gap: 5px;">
-              <div style="display: flex; align-items: center; font-size: 10px;">
-                <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
+              <div style="display: flex; align-items: center; font-size: 15px;">
+                <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 5px; --mdc-icon-size: 17px;"></ha-icon>
                 <span>${this._formatSunTime(sunRise)} </span>
               </div>
-              <div style="display: flex; align-items: center; font-size: 10px;">
-                <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
+              <div style="display: flex; align-items: center; font-size: 15px;">
+                <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 5px; --mdc-icon-size: 17px;"></ha-icon>
                 <span style="margin-right: 5px;">${this._formatSunTime(sunSet)}  </span>
               </div>
             </div>
           ` : ''}
         </div>
+
+        <!-- 模态框渲染 -->
+        ${this._showHourly ? html`
+          <div class="modal-overlay" @click="${() => this._showHourly = false}">
+            <div class="modal-content" style="background: ${this.config.card_bg_color || (theme === 'on' ? '#ffffff' : '#323232')}; color: ${fgColor};" @click="${(e) => e.stopPropagation()}">
+              <div class="modal-header" style="border-bottom-color: rgba(128, 128, 128, 0.5);">
+                <h3>24小时天气预报</h3>
+                <button class="modal-close-btn" style="color: ${theme === 'on' ? '#000' : '#fff'}" @click="${() => this._showHourly = false}">×</button>
+              </div>
+              <div class="modal-body">
+                <xiaoshi-hourly-weather-card .hass=${this.hass} .config=${this.config}></xiaoshi-hourly-weather-card>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${this._showWarning ? html`
+          <div class="modal-overlay" @click="${() => this._showWarning = false}">
+            <div class="modal-content" style="background: ${this.config.card_bg_color || (theme === 'on' ? '#ffffff' : '#323232')}; color: ${fgColor};" @click="${(e) => e.stopPropagation()}">
+              <div class="modal-header" style="border-bottom-color: rgba(128, 128, 128, 0.5);">
+                <h3>天气预警</h3>
+                <button class="modal-close-btn" style="color: ${theme === 'on' ? '#000' : '#fff'}" @click="${() => this._showWarning = false}">×</button>
+              </div>
+              <div class="modal-body">
+                <xiaoshi-warning-weather-card .hass=${this.hass} .config=${this.config}></xiaoshi-warning-weather-card>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${this._showAqi ? html`
+          <div class="modal-overlay" @click="${() => this._showAqi = false}">
+            <div class="modal-content" style="background: ${this.config.card_bg_color || (theme === 'on' ? '#ffffff' : '#323232')}; color: ${fgColor};" @click="${(e) => e.stopPropagation()}">
+              <div class="modal-header" style="border-bottom-color: rgba(128, 128, 128, 0.5);">
+                <h3>空气质量详情</h3>
+                <button class="modal-close-btn" style="color: ${theme === 'on' ? '#000' : '#fff'}" @click="${() => this._showAqi = false}">×</button>
+              </div>
+              <div class="modal-body">
+                <xiaoshi-aqi-weather-card .hass=${this.hass} .config=${this.config}></xiaoshi-aqi-weather-card>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${this._showIndices ? html`
+          <div class="modal-overlay" @click="${() => this._showIndices = false}">
+            <div class="modal-content" style="background: ${this.config.card_bg_color || (theme === 'on' ? '#ffffff' : '#323232')}; color: ${fgColor};" @click="${(e) => e.stopPropagation()}">
+              <div class="modal-header" style="border-bottom-color: rgba(128, 128, 128, 0.5);">
+                <h3>生活指数</h3>
+                <button class="modal-close-btn" style="color: ${theme === 'on' ? '#000' : '#fff'}" @click="${() => this._showIndices = false}">×</button>
+              </div>
+              <div class="modal-body">
+                <xiaoshi-indices-weather-card .hass=${this.hass} .config=${this.config}></xiaoshi-indices-weather-card>
+              </div>
+            </div>
+          </div>
+        ` : ''}
 
       </div>
     `;
@@ -4174,12 +4177,11 @@ class XiaoshiWeatherPadCard extends LitElement {
     return html`
       ${forecastDays.map(day => {
         // 如果是昨天，设置透明度 
-        const date = new Date(day.datetime);
-        const weekday = this._getWeekday(date);
+        const weekday = this._getWeekday(day.datetime);
         const isYesterday = weekday !== '昨天' && weekday !== '前天';
         const opacity = isYesterday ? 1 : 0.5;
         return html`
-          <div class="forecast-icon-container" style="opacity: ${opacity}>
+          <div class="forecast-icon-container" style="opacity: ${opacity}">
             <div class="forecast-icon">
               <img src="${this._getWeatherIcon(day.text)}" alt="${day.text}">
             </div>
@@ -4200,8 +4202,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         let windSpeed = windSpeedRaw;
 
         // 如果是昨天，设置透明度 
-        const date = new Date(day.datetime);
-        const weekday = this._getWeekday(date);
+        const weekday = this._getWeekday(day.datetime);
         const isYesterday = weekday !== '昨天' && weekday !== '前天';
         const opacity = isYesterday ? 1 : 0.5;
         // 如果风速是 "4-5" 格式，取最大值
@@ -4448,6 +4449,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         flex-direction: column;
         align-items: stretch;
         justify-content: flex-start;
+        position: relative;
         min-height: 50px;
         flex: 1;
         width: 100%;
@@ -5156,7 +5158,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
     // 根据主题设置颜色
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
-    const bgColor = 'rgb(255, 255, 255, 0)';
+    const bgColor = this.config.card_bg_color || 'transparent';
     const secondaryColor = theme === 'on' ? 'rgb(66, 165, 245)' : 'rgb(110, 190, 240)';
     const modalBgColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
     const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
@@ -5165,41 +5167,39 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const isDotMode = visualStyle === 'dot';
 
     return html`      
-      <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
-          <div class="hourly-modal-header">
-            <h3 style="color: ${fgColor};">24小时天气预报</h3>
-            <button class="close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleHourlyClose()}">×</button>
-          </div>
-          <div class="hourly-modal-body">
-            <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
-              <div class="main-content">
-                <!-- 天气头部信息 -->
-                <div class="weather-header">
-                  <div class="weather-left">
-                    <div class="weather-icon">
-                      <img src="${this._getWeatherIcon(condition)}" alt="${condition}">
-                    </div>
-                    <div class="weather-details">
-                      <div class="weather-temperature">
-                        ${temperature}<font size="1px"><b> ℃&ensp;</b></font>
-                        ${humidity}<font size="1px"><b> % </b></font>
-                      </div>
-                      <div class="weather-info">
-                        <span style="color: ${secondaryColor};">${condition}   
-                          ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
-                        </span>
-                        ${this._getAqiCategoryHtml()}
-                      </div>
-                    </div>
-                  </div>
+      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: 100%; margin: 0;">
+        <div class="main-content">
+          <!-- 天气头部信息 -->
+          <div class="weather-header" style="align-items: center; justify-content: space-between;">
+            <div class="weather-left" style="flex: 1;">
+              <div class="weather-icon">
+                <img src="${this._getWeatherIcon(condition)}" alt="${condition}">
+              </div>
+              <div class="weather-details">
+                <div class="weather-temperature">
+                  ${temperature}<font size="1px"><b> ℃&ensp;</b></font>
+                  ${humidity}<font size="1px"><b> % </b></font>
                 </div>
-                
-                <!-- 小时预报 -->
-                ${this._renderHourlyForecast()}
-              </div>   
+                <div class="weather-info">
+                  <span style="color: ${secondaryColor};">${condition}   
+                    ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="weather-right-align" style="flex-shrink: 0;">
+              <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px">
+                <!-- 指数 -->
+                ${this._getAqiCategoryHtml()}
+              </div>
             </div>
           </div>
-        </div>
+          
+          <!-- 小时预报 -->
+          ${this._renderHourlyForecast()}
+        </div>   
+      </div>
     `;
   }
 
@@ -5225,16 +5225,9 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     });
     
     return html`
-      <div class="forecast-container-wrapper" style="position: relative; overflow-x: auto; overflow-y: hidden;">
+      <div class="forecast-container-wrapper" style="position: relative; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-x;">
         <div class="forecast-container" 
-             style="display: grid; grid-template-columns: repeat(${hourlyForecast.length}, minmax(50px, 1fr)); gap: 2px; cursor: grab; width: ${hourlyForecast.length * 50+(hourlyForecast.length-1)*2 }px;"
-             @mousedown=${(e) => this._handleMouseDown(e)}
-             @mouseleave=${(e) => this._handleMouseUp(e)}
-             @mouseup=${(e) => this._handleMouseUp(e)}
-             @mousemove=${(e) => this._handleMouseMove(e)}
-             @touchstart=${(e) => this._handleTouchStart(e)}
-             @touchend=${(e) => this._handleTouchEnd(e)}
-             @touchmove=${(e) => this._handleTouchMove(e)}>
+             style="display: grid; grid-template-columns: repeat(${hourlyForecast.length}, minmax(50px, 1fr)); gap: 2px; width: ${hourlyForecast.length * 50+(hourlyForecast.length-1)*2 }px;">
           <!-- 小时温度连接线 Canvas - 绝对定位覆盖整个可滚动区域 -->
           <canvas class="temp-line-canvas temp-line-canvas-high temp-line-canvas-hourly" 
                   id="hourly-temp-canvas-${this._getInstanceId()}"></canvas>
@@ -5437,6 +5430,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
   _handleClose() {
     this.dispatchEvent(new CustomEvent('close'));
   }
+
 
   firstUpdated() {
     this._drawTempCurve();
@@ -5989,41 +5983,35 @@ class XiaoshiWarningWeatherCard extends LitElement {
     const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
 
     return html`
-        <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" >
-          <div class="warning-modal-header">
-            <h2 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h2>
-            <button class="warning-close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleWarningClose()}">×</button>
-          </div>
-          <div class="warning-modal-body">
-            ${warning.map((warningItem, index) => {
-              const typeName = warningItem.typeName ?? "";
-              const level = warningItem.level ?? "";
-              const sender = warningItem.sender ?? "";
-              const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 16) : "";
-              const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 16) : "";
-              const text = warningItem.text ?? "";
-              
-              // 获取当前预警项的颜色
-              const itemWarningColor = this._getWarningColorForLevel(level);
+      <div class="warning-modal-body" style="background: transparent; color: ${textColor}; padding: 0;">
+        ${warning.map((warningItem, index) => {
+          const typeName = warningItem.typeName ?? "";
+          const level = warningItem.level ?? "";
+          const sender = warningItem.sender ?? "";
+          const startTime = warningItem.startTime ? warningItem.startTime.slice(0, 16) : "";
+          const endTime = warningItem.endTime ? warningItem.endTime.slice(0, 16) : "";
+          const text = warningItem.text ?? "";
+          
+          // 获取当前预警项的颜色
+          const itemWarningColor = this._getWarningColorForLevel(level);
 
-              return html`
-                <div class="warning-item" style="border-left-color: ${itemWarningColor};">
-                  <div class="warning-item-header">
-                    <div class="warning-title" style="color: ${itemWarningColor};">
-                      ${sender}: 【${typeName}】${level}预警
-                    </div>
-                    <div class="warning-time" style="color: ${secondaryTextColor};">
-                      ${startTime} ~ ${endTime}
-                    </div>
-                  </div>
-                  <div class="warning-text" style="color: ${secondaryTextColor};">
-                    ${text}
-                  </div>
+          return html`
+            <div class="warning-item" style="border-left-color: ${itemWarningColor};">
+              <div class="warning-item-header">
+                <div class="warning-title" style="color: ${itemWarningColor};">
+                  ${sender}: 【${typeName}】${level}预警
                 </div>
-              `;
-            })}
-          </div>
-        </div>
+                <div class="warning-time" style="color: ${secondaryTextColor};">
+                  ${startTime} ~ ${endTime}
+                </div>
+              </div>
+              <div class="warning-text" style="color: ${secondaryTextColor};">
+                ${text}
+              </div>
+            </div>
+          `;
+        })}
+      </div>
     `;
   }
 
@@ -6375,11 +6363,7 @@ class XiaoshiAqiWeatherCard extends LitElement {
     const aqiColor = this._getAqiColor(category);
 
     return html`
-      <div class="aqi-card ${themeClass}">
-          <div class="aqi-modal-header">
-            <h2 style="color: ${textcolor};">天气指数数据</h2>
-            <button class="indices-close-btn" @click="${() => this._toggleAqiClose()}"></button>
-          </div>
+      <div class="aqi-card ${themeClass}" style="padding: 0;">
         <!-- AQI总览 -->
         <div class="aqi-overview">
           <div class="aqi-main-value">
@@ -6645,27 +6629,19 @@ class XiaoshiIndicesWeatherCard extends LitElement {
     const backgroundColor2 = isDark ? 'rgba(50, 50, 50,0.1)' : 'rgba(255, 255, 255,0.1)';
 
     return html`
-      <div class="indices-card" style="background: ${backgroundColor};">
-          <div class="indices-modal-header">
-            <h2 style="color: ${textcolor};">天气指数数据</h2>
-            <button class="indices-close-btn" @click="${() => this._toggleIndicesClose()}"></button>
-          </div>
-
-        <!-- 指数列表 -->
-        <div class="indices-grid">
-          ${indices.map(index => html`
-            <div class="index-item" style="background: ${backgroundColor2};">
-              <div class="index-header">
-                <span class="index-name" style="color: ${textcolor2};">${index.name} </span>
-                <span class="index-level" style="color: ${textcolor};">等级:${index.level} ${index.category}</span>
-              </div>
-
-              <div class="index-description" style="color: ${textcolor};">
-                ${index.text}
-              </div>
+      <div class="indices-grid" style="background: transparent;">
+        ${indices.map(index => html`
+          <div class="index-item" style="background: ${backgroundColor2};">
+            <div class="index-header">
+              <span class="index-name" style="color: ${textcolor2};">${index.name} </span>
+              <span class="index-level" style="color: ${textcolor};">等级:${index.level} ${index.category}</span>
             </div>
-          `)}
-        </div>
+
+            <div class="index-description" style="color: ${textcolor};">
+              ${index.text}
+            </div>
+          </div>
+        `)}
       </div>
     `;
   }

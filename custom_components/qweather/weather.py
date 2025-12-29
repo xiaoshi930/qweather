@@ -582,10 +582,10 @@ class WeatherData(object):
         self._location_id = None  # 用于存储LocationID
         self._fxlink = ""
         self._sundate = None
-        today = datetime.now()        
-        self._todaydate = today.strftime("%Y%m%d")
-        yesterday = today - timedelta(days=1)
-        self._yesterday = yesterday.strftime("%Y%m%d")
+        self._china_tz = dt_util.get_time_zone("Asia/Shanghai")
+        _now_cn = dt_util.now().astimezone(self._china_tz)
+        self._todaydate = _now_cn.strftime("%Y%m%d")
+        self._yesterday = (_now_cn - timedelta(days=1)).strftime("%Y%m%d")
         
         # 初始化 API URL
         self._update_api_urls()
@@ -803,6 +803,11 @@ class WeatherData(object):
     async def async_update(self, now, force_update=False):
         """获取天气数据"""
         _LOGGER.info("获取天气数据")
+        _src_now = now if now else dt_util.now()
+        _now_cn = _src_now.astimezone(self._china_tz)
+        self._todaydate = _now_cn.strftime("%Y%m%d")
+        self._yesterday = (_now_cn - timedelta(days=1)).strftime("%Y%m%d")
+        self.sun_url = f"https://{self._host}/v7/astronomy/sun?location={self._location}&date={self._todaydate}&lang=zh"
         # 如果是设备模式，每次更新时重新获取设备的经纬度并更新 API URL 
         if self._zone_or_device:
             entity_state = self.hass.states.get(self._zone_or_device)
