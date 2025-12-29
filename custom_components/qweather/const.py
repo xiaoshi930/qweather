@@ -19,7 +19,7 @@ CONF_ENABLE_HOURLY = "enable_hourly"
 CONF_ENABLE_WARNING = "enable_warning"
 CONF_ENABLE_AIR = "enable_air"
 CONF_ENABLE_YESTERDAY = "enable_yesterday"
-CONF_ENABLE_SUN = "enable_sun"
+
 CONF_ENABLE_INDICES = "enable_indices"
 ATTR_CONDITION_CN = "condition_cn"
 ATTR_UPDATE_TIME = "update_time"
