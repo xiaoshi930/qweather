@@ -1600,7 +1600,57 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return "#FFA726"; // 默认颜色
   }
 
-   _getRelativeTime(updateTime) {
+  _getWindDirectionIcon(bearing) {
+    const directions = [
+      { range: [337.5, 360], icon: '↑' },
+      { range: [0, 22.5], icon: '↑' },
+      { range: [22.5, 67.5], icon: '↗' },
+      { range: [67.5, 112.5], icon: '→' },
+      { range: [112.5, 157.5], icon: '↘' },
+      { range: [157.5, 202.5], icon: '↓' },
+      { range: [202.5, 247.5], icon: '↙' },
+      { range: [247.5, 292.5], icon: '←' },
+      { range: [292.5, 337.5], icon: '↖' }
+    ];
+    const direction = directions.find(dir => {
+      if (dir.range[0] <= dir.range[1]) {
+        return bearing >= dir.range[0] && bearing < dir.range[1];
+      } else if (dir.range[0] === 337.5 && dir.range[1] === 360) {
+        return bearing >= dir.range[0] && bearing <= 360;
+      } else if (dir.range[0] === 0 && dir.range[1] === 22.5) {
+        return bearing >= dir.range[0] && bearing < dir.range[1];
+      }
+      return false;
+    });
+    return direction ? direction.icon : '↓';
+  }
+
+  _getWindDirectionIcon(bearing) {
+    const directions = [
+      { range: [337.5, 360], icon: '↑' },
+      { range: [0, 22.5], icon: '↑' },
+      { range: [22.5, 67.5], icon: '↗' },
+      { range: [67.5, 112.5], icon: '→' },
+      { range: [112.5, 157.5], icon: '↘' },
+      { range: [157.5, 202.5], icon: '↓' },
+      { range: [202.5, 247.5], icon: '↙' },
+      { range: [247.5, 292.5], icon: '←' },
+      { range: [292.5, 337.5], icon: '↖' }
+    ];
+    const direction = directions.find(dir => {
+      if (dir.range[0] <= dir.range[1]) {
+        return bearing >= dir.range[0] && bearing < dir.range[1];
+      } else if (dir.range[0] === 337.5 && dir.range[1] === 360) {
+        return bearing >= dir.range[0] && bearing <= 360;
+      } else if (dir.range[0] === 0 && dir.range[1] === 22.5) {
+        return bearing >= dir.range[0] && bearing < dir.range[1];
+      }
+      return false;
+    });
+    return direction ? direction.icon : '↓';
+  }
+
+  _getRelativeTime(updateTime) {
     if (!updateTime || updateTime === '未知时间') {
       return '未知时间';
     }
@@ -1700,6 +1750,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
+    const windBearing = this.entity.attributes?.wind_bearing || 0;
     const pressure = this.entity.attributes?.pressure || 0;
     const visibility = this.entity.attributes?.visibility || 0;
     const city = this.entity.attributes?.city || '未知城市';
@@ -3962,6 +4013,9 @@ class XiaoshiWeatherPadCard extends LitElement {
     const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
     const windSpeed = this.entity.attributes?.wind_speed || 0;
+    const windBearing = this.entity.attributes?.wind_bearing || 0;
+    const pressure = this.entity.attributes?.pressure || 0;
+    const visibility = this.entity.attributes?.visibility || 0;
     const warning = this.entity.attributes?.warning || [];
     const theme = this._evaluateTheme();
     const hasaqi = this.entity.attributes?.aqi && Object.keys(this.entity.attributes.aqi).length > 0;
@@ -4001,16 +4055,18 @@ class XiaoshiWeatherPadCard extends LitElement {
                   ${humidity}<font size="1px"><b> % </b></font>
                 </div>
                 <div class="weather-right-align">
-                  ${hasWarning ? 
-                    html`<div class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningModal()}">⚠ ${warning.length}</div>` : ''}
+                  
                 </div>
               </div>
               
               <!-- 第二行：天气信息 + AQI -->
               <div class="weather-row">
                 <div class="weather-info">
-                  <span style="color: ${secondaryColor};">${condition}   
+                  <span style="color: ${secondaryColor};">${condition} 
+                    <span class="wind-direction">${this._getWindDirectionIcon(windBearing)}</span>
                     ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                    ${pressure}<span style="font-size: 0.6em;">hPa </span>
+                    ${visibility}<span style="font-size: 0.6em;">km </span>
                   </span>
                   ${this._getAqiCategoryHtml()}
                 </div>
@@ -4026,6 +4082,11 @@ class XiaoshiWeatherPadCard extends LitElement {
                 <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
                   小时
                 </button>
+                ${hasWarning ? html`
+                  <button class="toggle-btn daily-mode" style="background: ${warningColor};" @click="${() => this._toggleWarningModal()}">
+                    ⚠ ${warning.length}
+                  </button>
+                ` : ''}
               </div>
             </div>
           </div>
