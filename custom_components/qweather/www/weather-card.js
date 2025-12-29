@@ -833,7 +833,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-size: 2.5vw;
         font-weight: bold;
         white-space: nowrap;
-        height: 4vw;
+        height: 8vw;
         margin-bottom: 0.5vw;
       }
 
@@ -1781,11 +1781,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             <div class="sunrise-sunset-container" style="display: flex; align-items: center; gap: 1vw;">
               <div style="display: flex; align-items: center; font-size: 2vw;">
                 <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 0.6vw; --mdc-icon-size: 2.3vw;"></ha-icon>
-                <span>${this._formatSunTime(sunRise)} </span>
+                <span>${sunRise} </span>
               </div>
               <div style="display: flex; align-items: center; font-size: 2vw;">
                 <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 0.6vw; --mdc-icon-size: 2.3vw;"></ha-icon>
-                <span style="margin-right: 1vw;">${this._formatSunTime(sunSet)}  </span>
+                <span style="margin-right: 1vw;">${sunSet}  </span>
               </div>
             </div>
           ` : ''}
@@ -2205,7 +2205,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             <div style="margin-bottom: 1vw;">
               <!-- 第一行：预警标题 -->
               <div class="warning-title-line" style="color: ${warningColor};">
-                ${sender}: 【${typeName}】${level}预警&emsp;( ${startTime}至${endTime} )
+                ${sender}: 【${typeName}】${level}预警<br>
+                预警时间：${startTime}至${endTime}
               </div>
               
               <!-- 第二行：预警文本滚动 -->
@@ -2254,7 +2255,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         default: return '#9E9E9E'; // 灰色
       }
     };
-    
+     
     const aqiColor = getAqiColor(category);
 
     return html`
@@ -2264,7 +2265,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.5vw; padding: 0.5vw;  border-radius: 1.5vw;">
           <div style="text-align: center;">
             <div style="font-size: 4vw; font-weight: bold; color: ${aqiColor};">${aqiValue}</div>
-            <div style="font-size: 2.5vw; color: ${aqiColor}; margin-top: 0.5vw;">${category} ( ${level}级 )</div>
+            <div style="font-size: 2.5vw; color: ${aqiColor}; margin: 0vw;">${category} ( ${level}级 )</div>
           </div>
         </div>
         
@@ -4091,11 +4092,11 @@ class XiaoshiWeatherPadCard extends LitElement {
             <div class="sunrise-sunset-container" style="display: flex; align-items: center; gap: 5px;">
               <div style="display: flex; align-items: center; font-size: 10px;">
                 <ha-icon icon="mdi:weather-sunset-up" style="color: #FFA726; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
-                <span>${this._formatSunTime(sunRise)} </span>
+                <span>${sunRise} </span>
               </div>
               <div style="display: flex; align-items: center; font-size: 10px;">
                 <ha-icon icon="mdi:weather-sunset-down" style="color: #FF7043; margin-right: 5px; --mdc-icon-size: 12px;"></ha-icon>
-                <span style="margin-right: 5px;">${this._formatSunTime(sunSet)}  </span>
+                <span style="margin-right: 5px;">${sunSet}  </span>
               </div>
             </div>
           ` : ''}
@@ -4735,7 +4736,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         justify-content: space-between;
         align-items: center;
         margin-left: 25px;
-        margin-right: 10px;
+        margin-right: 0px;
         height: 60px;
         font-size: 20px;
       }
@@ -4746,16 +4747,16 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-size: 20px;
       }
 
-      .close-btn {
+      .hourly-close-btn {
         background: none;
         border: none;
         font-size: 24px;
         cursor: pointer;
         color: rgba(255, 100, 0);
-        padding: 0;
         margin-right: 10px;
-        width: 30px;
-        height: 30px;
+        padding: 5px;
+        width: 32px;
+        height: 32px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4763,7 +4764,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         transition: all 0.2s ease;
       }
 
-      .close-btn:hover {
+      .hourly-close-btn:hover {
         background-color: rgba(0, 0, 0, 0.1);
         color: rgba(255, 0, 0);
       }
@@ -5128,7 +5129,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
           <div class="hourly-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
             <div class="hourly-modal-header">
               <h3 style="color: ${textColor};">24小时天气预报</h3>
-              <button class="close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleHourlyClose()}">×</button>
+              <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
             </div>
             <div class="hourly-modal-body">
               <p style="color: ${textColor};">暂无小时天气数据</p>
@@ -5160,7 +5161,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
           <div class="hourly-modal-header">
             <h3 style="color: ${fgColor};">24小时天气预报</h3>
-            <button class="close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleHourlyClose()}">×</button>
+            <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
           </div>
           <div class="hourly-modal-body">
             <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
@@ -5761,16 +5762,16 @@ class XiaoshiWarningWeatherCard extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 15px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        padding-bottom: 10px;
+        margin-left: 25px;
+        margin-right: 0px;
+        height: 60px;
+        font-size: 20px;
       }
 
-      .warning-modal-header h2 {
-        margin: 20px 20px 5px 20px;
-        color: #FFA726;
-        font-size: 20px;
+      .warning-modal-header h3 {
+        margin: 0;
         font-weight: bold;
+        font-size: 20px;
       }
 
       .warning-close-btn {
@@ -5960,7 +5961,7 @@ class XiaoshiWarningWeatherCard extends LitElement {
       return html`
           <div class="warning-modal-content" >
             <div class="warning-modal-header">
-              <h2>天气预警</h2>
+              <h3>天气预警</h3>
               <button class="warning-close-btn" @click="${() => this._toggleWarningClose()}">×</button>
             </div>
             <div class="warning-modal-body">
@@ -5978,13 +5979,12 @@ class XiaoshiWarningWeatherCard extends LitElement {
     const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
     const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
     const secondaryTextColor = theme === 'on' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
-    const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
 
     return html`
         <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" >
           <div class="warning-modal-header">
-            <h2 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h2>
-            <button class="warning-close-btn" style="color: ${closeBtnColor};" @click="${() => this._toggleWarningClose()}">×</button>
+            <h3 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h3>
+            <button class="warning-close-btn" @click="${() => this._toggleWarningClose()}">×</button>
           </div>
           <div class="warning-modal-body">
             ${warning.map((warningItem, index) => {
@@ -6128,11 +6128,11 @@ class XiaoshiAqiWeatherCard extends LitElement {
       }
 
       .aqi-card {
-        position: relative;
-        border-radius: 15px;
-        padding: 16px;
-        font-family: sans-serif;
-        overflow: hidden;
+        border-radius: 12px;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin: 0 auto;
+        color: white;
       }
 
       .aqi-card.dark-theme {
@@ -6147,17 +6147,17 @@ class XiaoshiAqiWeatherCard extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: -10px;
-        margin-bottom: 25px;
-        border-bottom: 1px solid rgba(150, 150, 150, 0.4);
-        padding-bottom: 10px;
+        margin-left: 25px;
+        margin-right: 0px;
+        height: 60px;
+        font-size: 20px;
       }
 
-      .aqi-modal-header h2 {
-        margin: 20px 20px 5px 20px;
-        font-size: 20px;
+      .aqi-modal-header h3 {
+        margin: 0;
         font-weight: bold;
-      }      
+        font-size: 20px;
+      }    
 
       .aqi-close-btn {
         background: none;
@@ -6369,8 +6369,8 @@ class XiaoshiAqiWeatherCard extends LitElement {
     return html`
       <div class="aqi-card ${themeClass}">
           <div class="aqi-modal-header">
-            <h2 style="color: ${textcolor};">天气指数数据</h2>
-            <button class="indices-close-btn" @click="${() => this._toggleAqiClose()}"></button>
+            <h3 style="color: ${textcolor};">天气指数数据</h3>
+            <button class="aqi-close-btn" @click="${() => this._toggleAqiClose()}">×</button>
           </div>
         <!-- AQI总览 -->
         <div class="aqi-overview">
@@ -6446,27 +6446,29 @@ class XiaoshiIndicesWeatherCard extends LitElement {
 
       .indices-card {
         position: relative;
-        border-radius: 15px;
-        padding: 16px;
         font-family: sans-serif;
         overflow: hidden;
+        border-radius: 12px;
+        max-height: 80vh;
+        margin: 0 auto;
+        color: white;
       }
 
       .indices-modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: -10px;
-        margin-bottom: 25px;
-        border-bottom: 1px solid rgba(150, 150, 150, 0.4);
-        padding-bottom: 10px;
+        margin-left: 25px;
+        margin-right: 0px;
+        height: 60px;
+        font-size: 20px;
       }
 
-      .indices-modal-header h2 {
-        margin: 20px 20px 5px 20px;
-        font-size: 20px;
+      .indices-modal-header h3 {
+        margin: 0;
         font-weight: bold;
-      }      
+        font-size: 20px;
+      }    
 
       .indices-close-btn {
         background: none;
@@ -6492,6 +6494,7 @@ class XiaoshiIndicesWeatherCard extends LitElement {
 
       /* 指数网格 */
       .indices-grid {
+        padding: 0 16px;
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 8px;
@@ -6639,8 +6642,8 @@ class XiaoshiIndicesWeatherCard extends LitElement {
     return html`
       <div class="indices-card" style="background: ${backgroundColor};">
           <div class="indices-modal-header">
-            <h2 style="color: ${textcolor};">天气指数数据</h2>
-            <button class="indices-close-btn" @click="${() => this._toggleIndicesClose()}"></button>
+            <h3 style="color: ${textcolor};">天气指数数据</h3>
+            <button class="indices-close-btn" @click="${() => this._toggleIndicesClose()}">×</button>
           </div>
 
         <!-- 指数列表 -->
