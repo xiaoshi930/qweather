@@ -1112,16 +1112,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     // 根据日期差返回相应的文本
-    if (diffDays === -2) {
-      return '前天';
-    } else if (diffDays === -1) {
+    if (diffDays === -1) {
       return '昨天';
     } else if (diffDays === 0) {
       return '今天';
     } else if (diffDays === 1) {
       return '明天';
-    } else if (diffDays === 2) {
-      return '后天';
     }  else {
       // 其他日期返回星期几
       return weekdays[date.getDay()];
@@ -1843,7 +1839,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const lowTemp = this._formatTemperature(day.native_temp_low);
           
           // 如果是昨天，设置透明度 
-          const isYesterday = weekday !== '昨天' && weekday !== '前天';
+          const isYesterday = weekday !== '昨天';
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
 
@@ -2059,7 +2055,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         // 如果是昨天，设置透明度 
         const date = new Date(day.datetime);
         const weekday = this._getWeekday(date);
-        const isYesterday = weekday !== '昨天' && weekday !== '前天';
+        const isYesterday = weekday !== '昨天';
         const opacity = isYesterday ? 1 : 0.5;
 
         return html`
@@ -2098,7 +2094,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         // 如果是昨天，设置透明度 
         const date = new Date(day.datetime);
         const weekday = this._getWeekday(date);
-        const isYesterday = weekday !== '昨天' && weekday !== '前天';
+        const isYesterday = weekday !== '昨天';
         const opacity = isYesterday ? 1 : 0.5;
 
         // 如果风速是 "4-5" 格式，取最大值
@@ -3345,16 +3341,12 @@ class XiaoshiWeatherPadCard extends LitElement {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     // 根据日期差返回相应的文本
-    if (diffDays === -2) {
-      return '前天';
-    } else if (diffDays === -1) {
+    if (diffDays === -1) {
       return '昨天';
     } else if (diffDays === 0) {
       return '今天';
     } else if (diffDays === 1) {
       return '明天';
-    } else if (diffDays === 2) {
-      return '后天';
     }  else {
       // 其他日期返回星期几
       return weekdays[date.getDay()];
@@ -3913,7 +3905,7 @@ class XiaoshiWeatherPadCard extends LitElement {
           const lowTemp = this._formatTemperature(day.native_temp_low);
 
           // 如果是昨天，设置透明度 
-          const isYesterday = weekday !== '昨天' && weekday !== '前天';
+          const isYesterday = weekday !== '昨天';
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
           const hightbackground = isYesterday ? 
@@ -4176,7 +4168,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         // 如果是昨天，设置透明度 
         const date = new Date(day.datetime);
         const weekday = this._getWeekday(date);
-        const isYesterday = weekday !== '昨天' && weekday !== '前天';
+        const isYesterday = weekday !== '昨天';
         const opacity = isYesterday ? 1 : 0.5;
         return html`
           <div class="forecast-icon-container" style="opacity: ${opacity}>
@@ -4202,7 +4194,7 @@ class XiaoshiWeatherPadCard extends LitElement {
         // 如果是昨天，设置透明度 
         const date = new Date(day.datetime);
         const weekday = this._getWeekday(date);
-        const isYesterday = weekday !== '昨天' && weekday !== '前天';
+        const isYesterday = weekday !== '昨天';
         const opacity = isYesterday ? 1 : 0.5;
         // 如果风速是 "4-5" 格式，取最大值
         if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
