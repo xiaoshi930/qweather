@@ -23,7 +23,6 @@ from .const import (
     CONF_ENABLE_WARNING,
     CONF_ENABLE_AIR,
     CONF_ENABLE_YESTERDAY,
-    CONF_ENABLE_SUN,
     CONF_ENABLE_INDICES,
     )
 import voluptuous as vol
@@ -302,7 +301,7 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_ENABLE_WARNING, default=user_input.get(CONF_ENABLE_WARNING, False)): bool,
             vol.Required(CONF_ENABLE_AIR, default=user_input.get(CONF_ENABLE_AIR, False)): bool,
             vol.Required(CONF_ENABLE_YESTERDAY, default=user_input.get(CONF_ENABLE_YESTERDAY, False)): bool,
-            vol.Required(CONF_ENABLE_SUN, default=user_input.get(CONF_ENABLE_SUN, False)): bool,
+
             vol.Required(CONF_ENABLE_INDICES, default=user_input.get(CONF_ENABLE_INDICES, False)): bool,
         })
         
@@ -392,7 +391,7 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ENABLE_WARNING, default=user_input.get(CONF_ENABLE_WARNING, False)): bool,
             vol.Optional(CONF_ENABLE_AIR, default=user_input.get(CONF_ENABLE_AIR, False)): bool,
             vol.Optional(CONF_ENABLE_YESTERDAY, default=user_input.get(CONF_ENABLE_YESTERDAY, False)): bool,
-            vol.Optional(CONF_ENABLE_SUN, default=user_input.get(CONF_ENABLE_SUN, False)): bool,
+
             vol.Optional(CONF_ENABLE_INDICES, default=user_input.get(CONF_ENABLE_INDICES, False)): bool
         })
         # 每次显示表单时不带出之前的参数
@@ -476,10 +475,7 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
                         CONF_ENABLE_YESTERDAY,
                         default=config_data.get(CONF_ENABLE_YESTERDAY, False)
                     ): bool,
-                    vol.Required(
-                        CONF_ENABLE_SUN,
-                        default=config_data.get(CONF_ENABLE_SUN, False)
-                    ): bool,
+
                     vol.Required(
                         CONF_ENABLE_INDICES,
                         default=config_data.get(CONF_ENABLE_INDICES, False)
