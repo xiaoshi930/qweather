@@ -1238,38 +1238,52 @@ class WeatherData(object):
                 minutely_list = self._minutely_data
 
             # 创建小时预报的字典，用于快速查找匹配的小时数据
+            # 键格式：年-月-日-小时
             hourly_dict = {}
             if self._hourly_forecast:
                 for hourly in self._hourly_forecast:
                     try:
-                        hour = hourly.datetime.split(' ')[1].split(':')[0]
-                        hourly_dict[hour] = hourly
+                        datetime_parts = hourly.datetime.split(' ')
+                        date_part = datetime_parts[0]  # 年-月-日
+                        time_part = datetime_parts[1].split(':')[0]  # 小时
+                        key = f"{date_part}-{time_part}"
+                        hourly_dict[key] = hourly
                     except (IndexError, AttributeError):
                         continue
+
+            # 获取实时天气数据作为默认值
+            default_temperature = self._native_temperature
+            default_humidity = self._humidity
+            default_wind_speed = self._native_wind_speed
+            default_wind_bearing = self._wind_bearing
+            default_pressure = self._native_pressure
+            default_cloud = self._cloud
+            default_wind_scale = self._windscale
 
             for minutely in minutely_list:
                 try:
                     date_obj = datetime.fromisoformat(minutely.get("fxTime", "").replace('Z', '+00:00'))
                     date_obj = dt_util.as_local(date_obj)
                     time_str = date_obj.strftime('%Y-%m-%d %H:%M')
-                    hour = date_obj.strftime('%H')
+                    # 构建匹配键：年-月-日-小时
+                    match_key = date_obj.strftime('%Y-%m-%d-%H')
                 except ValueError:
                     time_str = "时间格式错误"
-                    hour = None
+                    match_key = None
 
                 # 从小时预报中获取匹配的数据
-                temperature = None
-                humidity = None
-                wind_speed = None
-                wind_bearing = None
-                pressure = None
-                cloud = None
-                wind_scale = None
+                temperature = default_temperature
+                humidity = default_humidity
+                wind_speed = default_wind_speed
+                wind_bearing = default_wind_bearing
+                pressure = default_pressure
+                cloud = default_cloud
+                wind_scale = default_wind_scale
                 condition = None
                 text = None
 
-                if hour and hour in hourly_dict:
-                    hourly_data = hourly_dict[hour]
+                if match_key and match_key in hourly_dict:
+                    hourly_data = hourly_dict[match_key]
                     temperature = hourly_data.native_temperature
                     humidity = hourly_data.humidity
                     wind_speed = hourly_data.native_wind_speed
@@ -1294,7 +1308,7 @@ class WeatherData(object):
                     text=text,
                     wind_bearing=wind_bearing,
                     native_wind_speed=wind_speed,
-                    native_precipitation=None,
+                    native_precipitation=float(minutely.get("precip", 0)),
                     humidity=humidity,
                     probable_precipitation=float(minutely.get("precip", 0)),
                     native_pressure=pressure,
