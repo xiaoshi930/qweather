@@ -27,6 +27,7 @@ ATTR_AQI = "aqi"
 ATTR_DAILY_FORECAST = "daily_forecast"
 ATTR_HOURLY_FORECAST = "hourly_forecast"
 ATTR_MINUTELY_FORECAST = "minutely_forecast"
+ATTR_MINUTELY_SUMMARY = "minutely_summary"
 ATTR_FORECAST_PROBABLE_PRECIPITATION = 'probable_precipitation'
 
 CONDITION_CLASSES = {
