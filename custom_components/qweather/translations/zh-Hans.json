@@ -47,13 +47,15 @@
                       "enable_air": "启用空气质量",
                       "enable_yesterday": "启用昨日天气",
                       "enable_sun": "启用日出日落",
-                      "enable_indices": "启用天气指数"
+                      "enable_indices": "启用天气指数",
+                      "enable_minutely": "启用分钟天气"
                   } 
               }
 
         },
         "error": {
-            "communication": "Key可能无效，请检查输入值."
+            "communication": "Key可能无效，请检查输入值.",
+            "base": "启用分钟天气必须先启用小时天气"
         },
         "abort": {
             "single_instance_allowed": "仅允许单个配置.",
@@ -78,7 +80,8 @@
               "enable_air": "启用空气质量",
               "enable_yesterday": "启用昨日天气",
               "enable_sun": "启用日出日落",
-              "enable_indices": "启用天气指数"
+              "enable_indices": "启用天气指数",
+              "enable_minutely": "启用分钟天气"
           } 
         }
     }
