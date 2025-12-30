@@ -5,19 +5,13 @@
 [官方开发文档](https://dev.qweather.com/docs/)   
 [和风天气数据更新时间](https://dev.qweather.com/docs/resource/glossary/#update-time)  
 
-## 更新说明  
-2025.08.08  
-1、增加ha启动时，优先启动“移动应用” ，后启动本集成  
+<img width="551" height="600" alt="image" src="https://github.com/user-attachments/assets/2f4a1236-53f0-43b3-b123-b857cf2c4341" />
+<img width="2087" height="1342" alt="eec2780fa49e4732c0cacd5a5de91b8" src="https://github.com/user-attachments/assets/b2a3f10d-e10c-4dfc-aa9c-4c392ac9d140" />
+<img width="2071" height="1338" alt="50385a12d46ceeecfbf1236c8c94560" src="https://github.com/user-attachments/assets/5a44f00f-2f25-4756-9057-a0b8e482d0c2" />
 
-2025.08.02  
-1、完善修改集成的逻辑 
 
-2025.08.02  
-1、删除天气预报（预报来源api不可访问）  
-2、修复更新时间间隔不生效问题  
 
-2025.07.29  
-发布初始版本
+
 
 ## 如何下载
 1、先添加自定义集成，后在HACS中搜索"和风天气"，安装此集成，重启Home Assistant  
