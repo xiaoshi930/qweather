@@ -1291,15 +1291,30 @@ class WeatherData(object):
                     pressure = hourly_data.native_pressure
                     cloud = hourly_data.cloud_coverage
                     wind_scale = hourly_data.windscaleday
-
+ 
                 # 降水类型转换
                 precip_type = minutely.get("type", "")
-                if precip_type == "rain":
-                    condition = "rainy"
-                    text = "雨"
-                elif precip_type == "snow":
-                    condition = "snowy"
-                    text = "雪"
+                precip_value = float(minutely.get("precip", 0))
+
+                # 当分钟降水为0时，继承小时天气或实时天气数据
+                if precip_value == 0:
+                    if match_key and match_key in hourly_dict:
+                        # 优先继承小时天气数据
+                        hourly_data = hourly_dict[match_key]
+                        condition = hourly_data.condition
+                        text = hourly_data.text
+                    else:
+                        # 没有匹配的小时数据，使用实时天气数据
+                        condition = self._condition
+                        text = self._condition_cn
+                else:
+                    # 有降水时，根据降水类型设置
+                    if precip_type == "rain":
+                        condition = "rainy"
+                        text = "雨"
+                    elif precip_type == "snow":
+                        condition = "snowy"
+                        text = "雪"
 
                 self._minutely_forecast.append(MinutelyForecast(
                     datetime=time_str,
