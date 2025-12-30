@@ -87,9 +87,10 @@ from .const import (
     ATTR_DAILY_FORECAST,
     ATTR_HOURLY_FORECAST,
     ATTR_MINUTELY_FORECAST,
+    ATTR_MINUTELY_SUMMARY,
     ATTR_FORECAST_PROBABLE_PRECIPITATION,
     CONDITION_CLASSES,
-    )
+)
     
 from .condition import CONDITION_MAP, EXCEPTIONAL
 _LOGGER = logging.getLogger(__name__)
@@ -245,6 +246,7 @@ class HeFengWeather(WeatherEntity):
         self._hourly_forecast = None
         self._daily_twice_forecast = None
         self._minutely_forecast = None
+        self._minutely_summary = None
         self._feelslike = None
         self._cloud = None
         self._vis = None
@@ -417,6 +419,7 @@ class HeFengWeather(WeatherEntity):
                 "dew_point": self._dew,
                 "feelslike": self._feelslike,
                 ATTR_UPDATE_TIME: self._updatetime,
+                ATTR_MINUTELY_SUMMARY: self._minutely_summary,
                 "aqis": self._aqi.get("aqi") if isinstance(self._aqi, dict) else None,
                 ATTR_AQI: self._aqi,
                 ATTR_DAILY_FORECAST: daily_forecast,
@@ -429,6 +432,7 @@ class HeFengWeather(WeatherEntity):
                 },
                 "warning": weather_warning,
             })
+
         return attributes
         
         # 设置定时更新
@@ -462,6 +466,7 @@ class HeFengWeather(WeatherEntity):
             self._hourly_forecast = self._data._hourly_forecast
             self._daily_twice_forecast = self._data._daily_twice_forecast
             self._minutely_forecast = self._data._minutely_forecast
+            self._minutely_summary = self._data._minutely_summary
             self._aqi = self._data._aqi
             self._winddir = self._data._winddir
             self._windscale = self._data._windscale
@@ -558,7 +563,9 @@ class WeatherData(object):
         self._updatetime = None
         self._daily_forecast = None
         self._hourly_forecast = None
-        self._aqi = None 
+        self._minutely_forecast = None
+        self._minutely_summary = None
+        self._aqi = None
         self._winddir = None
         self._windscale = None
         self._weather_warning = None
@@ -1229,8 +1236,13 @@ class WeatherData(object):
 
         # 处理分钟预报
         self._minutely_forecast = []
+        self._minutely_summary = None
 
         if self._minutely_data:
+            # 提取summary字段
+            if isinstance(self._minutely_data, dict):
+                self._minutely_summary = self._minutely_data.get('summary')
+
             minutely_list = []
             if isinstance(self._minutely_data, dict) and 'minutely' in self._minutely_data:
                 minutely_list = self._minutely_data['minutely']
