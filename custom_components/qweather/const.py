@@ -19,13 +19,14 @@ CONF_ENABLE_HOURLY = "enable_hourly"
 CONF_ENABLE_WARNING = "enable_warning"
 CONF_ENABLE_AIR = "enable_air"
 CONF_ENABLE_YESTERDAY = "enable_yesterday"
-
 CONF_ENABLE_INDICES = "enable_indices"
+CONF_ENABLE_MINUTELY = "enable_minutely"
 ATTR_CONDITION_CN = "condition_cn"
 ATTR_UPDATE_TIME = "update_time"
 ATTR_AQI = "aqi"
 ATTR_DAILY_FORECAST = "daily_forecast"
 ATTR_HOURLY_FORECAST = "hourly_forecast"
+ATTR_MINUTELY_FORECAST = "minutely_forecast"
 ATTR_FORECAST_PROBABLE_PRECIPITATION = 'probable_precipitation'
 
 CONDITION_CLASSES = {
