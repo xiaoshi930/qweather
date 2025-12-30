@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 3.6   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 3.7   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -362,7 +362,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       city_entity: { type: Object },
       entity: { type: Object },
       mode: { type: String },
-      forecastMode: { type: String }, // 'daily' 或 'hourly'
+      forecastMode: { type: String }, // 'daily', 'hourly', 或 'minutely'
       showWarningDetails: { type: Boolean }, // 是否显示预警详情
       showApiInfo: { type: Boolean }, // 是否显示空气质量详情
       showIndicesDetails: { type: Boolean } // 是否显示天气指数详情
@@ -475,6 +475,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         background: #9C27B0; /* 紫色 */
       }
 
+      .toggle-btn.minutely-mode {
+        background: #4CAF50; /* 绿色 */
+      }
+
       /*小时天气温度样式*/
       .temp-curve-hourly {
         position: absolute;
@@ -484,6 +488,26 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         background: linear-gradient(to bottom, 
           rgba(156, 39, 176) 0%, 
           rgba(103, 58, 183) 100%);
+        border-radius: 0.5vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2vw;
+        font-weight: bold;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        z-index: 4;
+      }
+
+      /*分钟天气温度样式（绿色）*/
+      .temp-curve-minutely {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 3.5vw;
+        background: linear-gradient(to bottom, 
+          rgba(76, 175, 80) 0%, 
+          rgba(56, 142, 60) 100%);
         border-radius: 0.5vw;
         display: flex;
         align-items: center;
@@ -724,7 +748,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       /* 圆点模式样式 */
       .dot-mode .temp-curve-high,
       .dot-mode .temp-curve-low,
-      .dot-mode .temp-curve-hourly {
+      .dot-mode .temp-curve-hourly,
+      .dot-mode .temp-curve-minutely {
         width: 1vw;
         height: 1vw;
         border-radius: 50%;
@@ -752,6 +777,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         background: rgba(156, 39, 176);
       }
 
+      .dot-mode .temp-curve-minutely {
+        background: rgba(76, 175, 80);
+      }
+
       /* 圆点上方的温度文字 */
       .dot-mode .temp-text {
         position: absolute;
@@ -775,6 +804,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       }
       .dot-mode .temp-curve-hourly .temp-text {
         color: rgba(193, 65, 215, 1);
+        top: -3.8vw;
+      }
+
+      .dot-mode .temp-curve-minutely .temp-text {
+        color: rgba(76, 175, 80, 1);
         top: -3.8vw;
       }
 
@@ -834,6 +868,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         font-weight: bold;
         white-space: nowrap;
         height: 8vw;
+        line-height: 3.5vw;
         margin-bottom: 0.5vw;
       }
 
@@ -997,6 +1032,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     this._value = '';
     this._isEditing = false;
     this._pendingSave = false;
+    this._forecastToggleState = 0; // 0: daily, 1: hourly, 2: minutely
   }
   
   _evaluateTheme() {
@@ -1135,8 +1171,43 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return this.entity.attributes.hourly_forecast.slice(0, 24);
   }
 
-  _toggleForecastMode(mode) {
-    this.forecastMode = mode;
+  _getMinutelyForecast() {
+    if (!this.entity?.attributes?.minutely_forecast) return [];
+    return this.entity.attributes.minutely_forecast.slice(0, 24);
+  }
+
+  _toggleForecastMode() {
+    // 检查是否有分钟天气数据
+    const enableMinutelyForecast = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
+    
+    if (enableMinutelyForecast) {
+      // 有分钟天气数据: daily -> hourly -> minutely -> daily (3种模式循环)
+      this._forecastToggleState = (this._forecastToggleState + 1) % 3;
+      
+      switch(this._forecastToggleState) {
+        case 0:
+          this.forecastMode = 'daily';
+          break;
+        case 1:
+          this.forecastMode = 'hourly';
+          break;
+        case 2:
+          this.forecastMode = 'minutely';
+          break;
+      }
+    } else {
+      // 没有分钟天气数据: daily -> hourly -> daily (2种模式循环)
+      this._forecastToggleState = (this._forecastToggleState + 1) % 2;
+      
+      switch(this._forecastToggleState) {
+        case 0:
+          this.forecastMode = 'daily';
+          break;
+        case 1:
+          this.forecastMode = 'hourly';
+          break;
+      }
+    }
     this.requestUpdate();
   }
 
@@ -1245,6 +1316,20 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return `${month}月${day}日`;
   }
 
+  _formatMinutelyTime(datetime) {
+    const date = new Date(datetime);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  _formatMinutelyDate(datetime) {
+    const date = new Date(datetime);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${month}月${day}日`;
+  }
+
 
   _getCustomTemperature() {
     if (!this.config?.use_custom_entities || !this.config?.temperature_entity || !this.hass?.states[this.config.temperature_entity]) {
@@ -1304,12 +1389,18 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         parseFloat(day.native_temp_low) || 0,
         parseFloat(day.native_temperature) || 0
       ]);
-    } else {
+    } else if (this.forecastMode === 'hourly') {
       const hourlyForecast = this._getHourlyForecast();
       if (hourlyForecast.length === 0) {
         return { minTemp: 0, maxTemp: 0, range: 0 };
       }
       temperatures = hourlyForecast.map(hour => parseFloat(hour.native_temperature) || 0);
+    } else if (this.forecastMode === 'minutely') {
+      const minutelyForecast = this._getMinutelyForecast();
+      if (minutelyForecast.length === 0) {
+        return { minTemp: 0, maxTemp: 0, range: 0 };
+      }
+      temperatures = minutelyForecast.map(minute => parseFloat(minute.native_temperature) || 0);
     }
 
     const minTemp = Math.min(...temperatures);
@@ -1370,7 +1461,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       // 每日天气使用现有的计算方法
       boundsList = forecastData.map(day => this._calculateTemperatureBounds(day, extremes));
     } else {
-      // 小时天气只需要一个温度，简化计算
+      // 小时天气和分钟天气只需要一个温度，简化计算
       const { minTemp, maxTemp, range, allEqual } = extremes;
       const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
       const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
@@ -1384,8 +1475,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         }));
       } else {
         const unitPosition = range === 0 ? 0 : availableHeight / range;
-        boundsList = forecastData.map(hour => {
-          const temp = parseFloat(hour.native_temperature) || 0;
+        boundsList = forecastData.map(item => {
+          const temp = parseFloat(item.native_temperature) || 0;
           const topPosition = (maxTemp - temp) * unitPosition;
           return { highTop: topPosition, lowTop: topPosition };
         });
@@ -1408,7 +1499,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         curveHeight = curveBottom - curveTop;
       }
     } else {
-      // 小时天气模式
+      // 小时天气和分钟天气模式
       const tops = boundsList.map(bounds => bounds.highTop);
       const { allEqual } = extremes;
       
@@ -1695,8 +1786,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const hassairindices = this.entity.attributes?.air_indices && Object.keys(this.entity.attributes.air_indices).length > 0;
     const warningColor = this._getWarningColor(warning);
     const enableHourlyForecast = this.entity.attributes?.hourly_forecast && this.entity.attributes?.hourly_forecast.length > 0;
-    const sunRise = this.entity.attributes?.sun.sunrise || '';
-    const sunSet = this.entity.attributes?.sun.sunset || '';
+    const enableMinutelyForecast = this.entity.attributes?.minutely_forecast && this.entity.attributes?.minutely_forecast.length > 0;
+    const sunRise = this.entity.attributes?.sun.sunrise || '无';
+    const sunSet = this.entity.attributes?.sun.sunset || '无';
 
     // 获取颜色
     const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
@@ -1748,8 +1840,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                 <!-- 切换按钮 -->
                 ${enableHourlyForecast ? html`
                   <div class="forecast-toggle-button">
-                    <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : 'hourly-mode'}" @click="${() => this._toggleForecastMode(this.forecastMode === 'daily' ? 'hourly' : 'daily')}">
-                      ${this.forecastMode === 'daily' ? '小时天气' : '每日天气'}
+                    <button class="toggle-btn ${this.forecastMode === 'daily' ? 'daily-mode' : this.forecastMode === 'hourly' ? 'hourly-mode' : 'minutely-mode'}" @click="${() => this._toggleForecastMode()}">
+                      ${this.forecastMode === 'daily' ? '每日天气' : this.forecastMode === 'hourly' ? '小时天气' : '分钟天气'}
                     </button>
                   </div>
                 ` : ''}
@@ -1797,6 +1889,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _renderDailyForecast() {
     if (this.forecastMode === 'hourly') {
       return this._renderHourlyForecast();
+    }
+    if (this.forecastMode === 'minutely') {
+      return this._renderMinutelyForecast();
     }
     
     const forecastDays = this._getForecastDays();
@@ -2049,6 +2144,122 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     `;
   }
 
+  _renderMinutelyForecast() {
+    const minutelyForecast = this._getMinutelyForecast();
+    const extremes = this._getTemperatureExtremes();
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    
+    // 生成温度曲线坐标（分钟天气只有一个温度）
+    const tempData = this._generateTemperatureLine(minutelyForecast, extremes, true);
+    
+    // 使用组件实例ID + Canvas ID，避免多实例冲突
+    const instanceId = this._getInstanceId();
+    const canvasId = `minutely-temp-canvas-${instanceId}`;
+    
+    // 在DOM更新完成后绘制曲线（绿色）
+    this.updateComplete.then(() => {
+      setTimeout(() => {
+        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(76, 175, 80)');
+      }, 50);
+    });
+    
+    // 计算实际列数（分钟天气可能有更多数据）
+    const columns = minutelyForecast.length;
+    const columnWidth = 9.6;
+     
+    return html`
+      <div class="hourly-forecast-scroll-container">
+        <div class="hourly-forecast-container" style="grid-template-columns: repeat(${columns}, ${columnWidth}vw);">
+          <!-- 分钟温度连接线 Canvas -->
+          <canvas class="temp-line-canvas temp-line-canvas-high" id="minutely-temp-canvas-${this._getInstanceId()}"></canvas>
+          
+          ${minutelyForecast.map((minute, index) => {
+            const timeStr = this._formatMinutelyTime(minute.datetime);
+            const dateStr = this._formatMinutelyDate(minute.datetime);
+            const temp = this._formatTemperature(minute.native_temperature);
+            
+            // 获取雨量信息
+            const rainfall = parseFloat(minute.native_precipitation) || 0;
+            
+            // 计算温度位置（简化版）
+            const { minTemp, maxTemp, range, allEqual } = extremes;
+            const { BUTTON_HEIGHT_VW, CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
+            const availableHeight = CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW;
+            
+            let finalTopPosition;
+            if (allEqual) {
+              // 如果所有温度相等，将位置设置在中间
+              finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+            } else {
+              const unitPosition = range === 0 ? 0 : availableHeight / range;
+              const tempValue = parseFloat(minute.native_temperature) || 0;
+              const topPosition = (maxTemp - tempValue) * unitPosition;
+              finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
+            }
+            
+            // 计算雨量矩形高度和位置
+            const RAINFALL_MAX = 0.2; // 最大雨量2mm
+            const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * CONTAINER_HEIGHT_VW+4, CONTAINER_HEIGHT_VW+4); // 最大高度21.6vw（到日期下面）
+
+
+            return html`
+              <div class="forecast-day" style="background: ${backgroundColor};">
+                <!-- 时间（hh:mm） -->
+                <div class="forecast-weekday">${timeStr}</div>
+                
+                <!-- 日期（mm月dd日） -->
+                <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
+                
+                <!-- 温度（绿色） -->
+                <div class="forecast-temp-container">
+                  ${this.config.visual_style === 'dot' ? html`
+                    <!-- 圆点模式 -->
+                    <div class="temp-curve-minutely" style="top: ${finalTopPosition + 1.75}vw">
+                      <div class="temp-text">${temp}°</div>
+                    </div>
+                  ` : html`
+                    <!-- 按钮模式 -->
+                    <div class="temp-curve-minutely" style="top: ${finalTopPosition}vw">
+                      ${temp}°
+                    </div>
+                  `}
+                  
+                  <!-- 雨量填充矩形 -->
+                  ${rainfall > 0 ? html`
+                    <div class="rainfall-fill" style="height: ${rainfallHeight}vw; opacity: ${rainfall / RAINFALL_MAX}"></div>
+                  ` : ''}
+                </div>
+                <div class="forecast-temp-null"></div>
+              </div>
+            `;
+          })}
+          
+          <!-- 雨量标签行 -->
+          ${minutelyForecast.map(minute => {
+            const rainfall = parseFloat(minute.native_precipitation) || 0;
+            return html`
+              <div class="forecast-rainfall-container">
+                ${rainfall > 0 ? html`
+                  <div class="forecast-rainfall">
+                    ${rainfall}mm
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          })}
+          
+          <!-- 天气图标行 -->
+          ${this._renderMinutelyWeatherIcons(minutelyForecast)}
+          
+          <!-- 风向风级行 -->
+          ${this._renderMinutelyWindInfo(minutelyForecast)}
+        </div>
+      </div>
+    `;
+  }
+
   _renderWeatherIcons(forecastDays) {
     return html`
       ${forecastDays.map(day => {
@@ -2076,6 +2287,20 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           <div class="forecast-icon-container">
             <div class="forecast-icon">
               <img src="${this._getWeatherIcon(hour.text)}" alt="${hour.text}">
+            </div>
+          </div>
+        `;
+      })}
+    `;
+  }
+
+  _renderMinutelyWeatherIcons(minutelyForecast) {
+    return html`
+      ${minutelyForecast.map(minute => {
+        return html`
+          <div class="forecast-icon-container">
+            <div class="forecast-icon">
+              <img src="${this._getWeatherIcon(minute.text)}" alt="${minute.text}">
             </div>
           </div>
         `;
@@ -2167,6 +2392,36 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         }
         
         const windDirection = hour.wind_bearing || 0;
+        
+        return html`
+          <div class="forecast-wind-container">
+            <div class="forecast-wind" style="color: ${secondaryColor};">
+              <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
+              <span>${windSpeed}级</span>
+            </div>
+          </div>
+        `;
+      })}
+    `;
+  }
+
+  _renderMinutelyWindInfo(minutelyForecast) {
+    const theme = this._evaluateTheme();
+    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    return html`
+      ${minutelyForecast.map(minute => {
+        const windSpeedRaw = minute.windscaleday || 0;
+        let windSpeed = windSpeedRaw;
+        
+        // 如果风速是 "4-5" 格式，取最大值
+        if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
+          const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
+          if (speeds.length === 2 && !isNaN(speeds[0]) && !isNaN(speeds[1])) {
+            windSpeed = Math.max(speeds[0], speeds[1]);
+          }
+        }
+        
+        const windDirection = minute.wind_bearing || 0;
         
         return html`
           <div class="forecast-wind-container">
@@ -4013,10 +4268,10 @@ class XiaoshiWeatherPadCard extends LitElement {
     const hassairindices = this.entity.attributes?.air_indices && Object.keys(this.entity.attributes.air_indices).length > 0;
     const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
     const warningColor = this._getWarningColor(warning);
-
+    const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     const update_time = this.entity.attributes?.update_time || '未知时间';
-    const sunRise = this.entity.attributes?.sun.sunrise || '';
-    const sunSet = this.entity.attributes?.sun.sunset || '';
+    const sunRise = this.entity.attributes?.sun.sunrise || '无';
+    const sunSet = this.entity.attributes?.sun.sunset || '无';
     // 获取颜色
     const fgColor = 'rgb(255, 255, 255)';
     const bgColor = 'rgb(255, 255, 255, 0)';
@@ -4068,8 +4323,8 @@ class XiaoshiWeatherPadCard extends LitElement {
                       </button>
                     ` : ''}
                     <!-- 24小时天气按钮 -->
-                    <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">
-                      小时
+                    <button class="toggle-btn daily-mode" @click="${() => this._toggleHourlyModal()}">      
+                      ${hasminutely ? "详细" : "小时"}
                     </button>
                   </div>
                 </div>
@@ -4488,11 +4743,32 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         z-index: 4;
       }
 
+      /*分钟天气温度样式（绿色）*/
+      .temp-curve-minutely {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 17.5px;
+        background: linear-gradient(to bottom, 
+          rgba(76, 175, 80) 0%, 
+          rgba(56, 142, 60) 100%);
+        border-radius: 2.5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        z-index: 4;
+      }
+
       /*9日天气部分*/
       .forecast-container {
         display: grid;
-        gap: 4px;
+        gap: 2px;
         margin-top: 10px;
+        height: 240px;
         position: relative;
       }
 
@@ -4660,21 +4936,8 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       }
 
       /* 圆点模式样式 */
-      .dot-mode .temp-curve-high,
-      .dot-mode .temp-curve-low {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        left: calc(50% - 2.5px);
-        margin-top: -2.5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 600;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-      }
-      .dot-mode .temp-curve-hourly {
+      .dot-mode .temp-curve-hourly,
+      .dot-mode .temp-curve-minutely {
         width: 5px;
         height: 5px;
         border-radius: 50%;
@@ -4692,6 +4955,10 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         background: rgba(156, 39, 176);
       }
 
+      .dot-mode .temp-curve-minutely {
+        background: rgba(76, 175, 80);
+      }
+
       /* 圆点上方的温度文字 */
       .dot-mode .temp-text {
         position: absolute;
@@ -4706,6 +4973,9 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
       .dot-mode .temp-curve-hourly .temp-text {
         color: rgba(193, 65, 215, 1);
+      }
+      .dot-mode .temp-curve-minutely .temp-text {
+        color: rgba(76, 175, 80, 1);
       }
 
       .unavailable {
@@ -4725,7 +4995,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         background-color: rgba(50, 50, 50);
         border-radius: 12px;
         max-width: 80vw;
-        max-height: 80vh;
         overflow: hidden;
         margin: 0 auto;
         padding: 0px;
@@ -4745,6 +5014,20 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         margin: 0;
         font-weight: bold;
         font-size: 20px;
+        
+      }
+
+      .hourly-modal-header2 {
+        display: flex;
+        justify-content: flex-end;
+        align-items: start;
+        margin-right: 0px;
+        height: 30px;
+        font-size: 15px;
+      }
+      .hourly-modal-header2 h3 {
+        font-weight: bold;
+        font-size: 15px;
       }
 
       .hourly-close-btn {
@@ -4770,7 +5053,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       }
 
       .hourly-modal-body {
-        padding: 0 2px;
+        padding: 5px 2px;
         overflow: hidden;
       }
 
@@ -4963,6 +5246,26 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     return { minTemp, maxTemp, range, allEqual };
   }
 
+  _getMinutelyTmperatureExtremes() {
+    let temperatures = [];
+    
+    // 小时预报专用温度极值计算
+    const minutelyForecast = this._getMinutelyForecast();
+    if (minutelyForecast.length === 0) {
+      return { minTemp: 0, maxTemp: 0, range: 0, allEqual: true };
+    }
+    temperatures = minutelyForecast.map(hour => parseFloat(hour.native_temperature) || 0);
+
+    const minTemp = Math.min(...temperatures);
+    const maxTemp = Math.max(...temperatures);
+    const range = maxTemp - minTemp;
+    
+    // 检查是否所有温度都相等
+    const allEqual = temperatures.every(temp => temp === temperatures[0]);
+    
+    return { minTemp, maxTemp, range, allEqual };
+  }
+
   _generateHourlyTemperatureLine(hourlyData, extremes) {
     if (hourlyData.length === 0) return { points: [], curveHeight: 0, curveTop: 0 };
     
@@ -5009,6 +5312,11 @@ class XiaoshiHourlyWeatherCard extends LitElement {
   _getHourlyForecast() {
     if (!this.entity?.attributes?.hourly_forecast) return [];
     return this.entity.attributes.hourly_forecast.slice(0, 24);
+  }
+
+  _getMinutelyForecast() {
+    if (!this.entity?.attributes?.minutely_forecast) return [];
+    return this.entity.attributes.minutely_forecast.slice(0, 24);
   }
 
   _getCustomTemperature() {
@@ -5123,7 +5431,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       const theme = this._evaluateTheme();
       const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
       const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
-      const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
       
       return html`
           <div class="hourly-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
@@ -5152,15 +5459,16 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const bgColor = 'rgb(255, 255, 255, 0)';
     const secondaryColor = theme === 'on' ? 'rgb(66, 165, 245)' : 'rgb(110, 190, 240)';
     const modalBgColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
-    const closeBtnColor = theme === 'on' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 100, 0)';
-
+    const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
 
     return html`      
       <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
           <div class="hourly-modal-header">
-            <h3 style="color: ${fgColor};">24小时天气预报</h3>
+            <h3 style="color: ${fgColor};">
+             ${hasminutely ? "详细天气预报" : "24小时天气预报"}
+            </h3>
             <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
           </div>
           <div class="hourly-modal-body">
@@ -5179,7 +5487,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
                       </div>
                       <div class="weather-info">
                         <span style="color: ${secondaryColor};">${condition}   
-                          ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                          ${windSpeed}<span style="font-size: 0.6em;">km/h </span> 
                         </span>
                         ${this._getAqiCategoryHtml()}
                       </div>
@@ -5188,10 +5496,20 @@ class XiaoshiHourlyWeatherCard extends LitElement {
                 </div>
                 
                 <!-- 小时预报 -->
+                 ${hasminutely ? html`<div class="hourly-modal-header2">
+                    <h3 style="color: ${fgColor};">24小时天气预报</h3>
+                  </div>` : ''}
                 ${this._renderHourlyForecast()}
+
+                ${hasminutely ? html`<div class="hourly-modal-header2">
+                    <h3 style="color: ${fgColor};">分钟天气预报</h3>
+                  </div>
+                  ${this._renderMinutelyForecast()}` : ''}
               </div>   
             </div>
           </div>
+
+
         </div>
     `;
   }
@@ -5317,6 +5635,175 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     `;
   }
 
+  _renderMinutelyForecast() {
+    const minutelyForecast = this._getMinutelyForecast();
+    const extremes = this._getMinutelyTmperatureExtremes();
+    const theme = this._evaluateTheme();
+    const secondaryColor = 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    
+    // 生成温度曲线坐标（分钟天气只有一个温度）
+    const tempData = this._generateHourlyTemperatureLine(minutelyForecast, extremes, true);
+    
+    // 使用组件实例ID + Canvas ID，避免多实例冲突
+    const instanceId = this._getInstanceId();
+    const canvasId = `minutely-temp-canvas-${instanceId}`;
+    
+    // 在DOM更新完成后绘制曲线（绿色）
+    this.updateComplete.then(() => {
+      setTimeout(() => {
+        this._drawTemperatureCurve(canvasId, tempData.points, 'rgba(76, 175, 80)');
+      }, 50);
+    });
+    
+    return html`
+      <div class="forecast-container-wrapper" style="position: relative; overflow-x: auto; overflow-y: hidden;">
+        <div class="forecast-container" 
+             style="display: grid; grid-template-columns: repeat(${minutelyForecast.length}, minmax(50px, 1fr)); gap: 2px; cursor: grab; width: ${minutelyForecast.length * 50+(minutelyForecast.length-1)*2 }px;"
+             @mousedown=${(e) => this._handleMouseDown(e)}
+             @mouseleave=${(e) => this._handleMouseUp(e)}
+             @mouseup=${(e) => this._handleMouseUp(e)}
+             @mousemove=${(e) => this._handleMouseMove(e)}
+             @touchstart=${(e) => this._handleTouchStart(e)}
+             @touchend=${(e) => this._handleTouchEnd(e)}
+             @touchmove=${(e) => this._handleTouchMove(e)}>
+          <!-- 分钟温度连接线 Canvas - 绝对定位覆盖整个可滚动区域 -->
+          <canvas class="temp-line-canvas temp-line-canvas-high temp-line-canvas-minutely" 
+                  id="minutely-temp-canvas-${this._getInstanceId()}"></canvas>
+        
+        ${minutelyForecast.map((minute, index) => {
+          const timeStr = this._formatHourlyTime(minute.datetime);
+          const dateStr = this._formatHourlyDate(minute.datetime);
+          const temp = this._formatTemperature(minute.native_temperature);
+          
+          // 获取雨量信息
+          const rainfall = parseFloat(minute.native_precipitation) || 0;
+          
+          // 计算温度位置（简化版）
+          const { minTemp, maxTemp, range, allEqual } = extremes;
+          const { BUTTON_HEIGHT_PX, CONTAINER_HEIGHT_PX } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
+          // 使用实际可用高度：容器高度减去按钮高度
+          const availableHeight = CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX;
+          
+          let finalTopPosition;
+          if (allEqual) {
+            // 如果所有温度相等，将位置设置在中间
+            finalTopPosition = availableHeight / 2;
+          } else {
+            const unitPosition = range === 0 ? 0 : availableHeight / range;
+            const tempValue = parseFloat(minute.native_temperature) || 0;
+            const topPosition = (maxTemp - tempValue) * unitPosition;
+            // 最高温度应该显示在顶部(position: 0)，最低温度在底部(position: availableHeight)
+            finalTopPosition = Math.max(0, Math.min(topPosition, availableHeight));
+          }
+          
+          // 计算雨量矩形高度和位置
+          const RAINFALL_MAX = 2; // 最大雨量20mm
+          const rainfallHeight = Math.min((rainfall / RAINFALL_MAX) * 125, 125);
+
+          return html`
+            <div class="forecast-day" style="background: ${backgroundColor};">
+              <!-- 时间（hh:mm） -->
+              <div class="forecast-weekday">${timeStr}</div>
+              
+              <!-- 日期（mm月dd日） -->
+              <div class="forecast-date" style="color: ${secondaryColor};">${dateStr}</div>
+              
+              <!-- 温度（绿色） -->
+              <div class="forecast-temp-container">
+                ${this.config.visual_style === 'dot' ? html`
+                  <!-- 圆点模式 -->
+                  <div class="temp-curve-minutely" style="top: ${finalTopPosition}px">
+                    <div class="temp-text">${temp}°</div>
+                  </div>
+                ` : html`
+                  <!-- 按钮模式 -->
+                  <div class="temp-curve-minutely" style="top: ${finalTopPosition}px">
+                    ${temp}°
+                  </div>
+                `}
+                
+                <!-- 雨量填充矩形 -->
+                ${rainfall > 0 ? html`
+                  <div class="rainfall-fill" style="height: ${rainfallHeight}px; opacity: ${0.3+rainfall / RAINFALL_MAX}"></div>
+                ` : ''}
+              </div>
+              <div class="forecast-temp-null"></div>
+            </div>
+          `;
+        })}
+        
+        <!-- 雨量标签行 -->
+        ${minutelyForecast.map(minute => {
+          const rainfall = parseFloat(minute.native_precipitation) || 0;
+          return html`
+            <div class="forecast-rainfall-container">
+              ${rainfall > 0 ? html`
+                <div class="forecast-rainfall">
+                  ${rainfall}mm
+                </div>
+              ` : ''}
+            </div>
+          `;
+        })}
+        
+        <!-- 天气图标行 -->
+        ${this._renderMinutelyWeatherIcons(minutelyForecast)}
+        
+        <!-- 风向风级行 -->
+        ${this._renderMinutelyWindInfo(minutelyForecast)}
+      </div>
+    `;
+  }
+
+  _renderMinutelyWeatherIcons(minutelyForecast) {
+    return html`
+      ${minutelyForecast.map(minute => {
+        return html`
+          <div class="forecast-icon-container">
+            <div class="forecast-icon">
+              <img src="${this._getWeatherIcon(minute.text)}" alt="${minute.text}">
+            </div>
+          </div>
+        `;
+      })}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderMinutelyWindInfo(minutelyForecast) {
+    const theme = this._evaluateTheme();
+    const secondaryColor = 'rgb(110, 190, 240)';
+    return html`
+      ${minutelyForecast.map(minute => {
+        const windSpeedRaw = minute.windscaleday || 0;
+        let windSpeed = windSpeedRaw;
+        
+        // 如果风速是 "4-5" 格式，取最大值
+        if (typeof windSpeedRaw === 'string' && windSpeedRaw.includes('-')) {
+          const speeds = windSpeedRaw.split('-').map(s => parseFloat(s.trim()));
+          if (speeds.length === 2 && !isNaN(speeds[0]) && !isNaN(speeds[1])) {
+            windSpeed = Math.max(speeds[0], speeds[1]);
+          }
+        }
+        
+        const windDirection = minute.wind_bearing || 0;
+        
+        return html`
+          <div class="forecast-wind-container">
+            <div class="forecast-wind" style="color: ${secondaryColor};">
+              <span class="wind-direction">${this._getWindDirectionIcon(windDirection)}</span>
+              <span>${windSpeed}级</span>
+            </div>
+          </div>
+        `;
+      })}
+        </div>
+      </div>
+    `;
+  }
+
   _drawTemperatureCurve(canvasId, points, color) {
     
     requestAnimationFrame(() => {
@@ -5343,6 +5830,13 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       if (canvasId.includes('hourly')) {
         const hourlyData = this._getHourlyForecast();
         const contentWidth = hourlyData.length * 50; // 每小时50px
+        targetWidth = Math.max(rect.width, contentWidth);
+      }
+      
+      // 对于分钟温度曲线，确保Canvas覆盖整个可滚动宽度
+      if (canvasId.includes('minutely')) {
+        const minutelyData = this._getMinutelyForecast();
+        const contentWidth = minutelyData.length * 50; // 每分钟50px
         targetWidth = Math.max(rect.width, contentWidth);
       }
       
