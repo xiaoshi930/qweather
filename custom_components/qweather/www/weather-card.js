@@ -5036,6 +5036,18 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-size: 15px;
       }
 
+      .hourly-modal-header3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-left: 25px;
+        margin-right: 0px;
+        height: 20px;
+      }
+      .hourly-modal-header3 h3 {
+        font-weight: bold;
+        font-size: 18px;
+      }
       .hourly-close-btn {
         background: none;
         border: none;
@@ -5468,14 +5480,20 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
+    const summary = this.entity?.attributes?.minutely_summary  || ''; 
 
     return html`      
       <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
           <div class="hourly-modal-header">
             <h3 style="color: ${fgColor};">
-             ${hasminutely ? "详细天气预报" : "24小时天气预报"}
+             ${hasminutely ? "详细天气预报": "24小时天气预报"}
             </h3>
             <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
+          </div>
+          <div class="hourly-modal-header3">
+            <h3 style="color: ${fgColor};">
+             ${hasminutely ? summary: ""}
+            </h3>
           </div>
           <div class="hourly-modal-body">
             <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
