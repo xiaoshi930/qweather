@@ -220,9 +220,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         # 正常更新数据
         await data.async_update(now)
     
-    # 注册定时更新
-    async_track_time_interval(hass, custom_update, timedelta(minutes=update_interval_minutes))
+    # 注册定时更新并保存回调对象，以便卸载时取消
+    update_listener = async_track_time_interval(hass, custom_update, timedelta(minutes=update_interval_minutes))
     _LOGGER.debug('[%s]刷新间隔时间: %s 分钟，夜间不更新: %s', name, update_interval_minutes, no_update_at_night)
+    
+    # 保存定时任务回调到hass.data，供卸载时使用
+    hass.data[DOMAIN][unique_id]['update_listener'] = update_listener
     
     if data._current:  # 检查是否有有效数据
         async_add_entities([HeFengWeather(data, unique_id, name)], True)
@@ -1033,7 +1036,7 @@ class WeatherData(object):
                 tasks.append(fetch_data(self.hourly_url, '_updatetime_hourly', '_hourly_data', min_intervals['hourly'], 'hourly', force_update))
             if self._enable_minutely:
                 _LOGGER.debug(f"添加分钟预警API任务: {self.minutely_url}")
-                tasks.append(fetch_data(self.minutely_url, '_updatetime_minutely', '_minutely_data', min_intervals['hourly'], None, force_update))
+                tasks.append(fetch_data(self.minutely_url, '_updatetime_minutely', '_minutely_data', min_intervals['minutely'], None, force_update))
             if self._enable_warning:
                 _LOGGER.debug(f"添加预警API任务: {self.warning_url}")
                 tasks.append(fetch_data(self.warning_url, '_updatetime_warning', '_warning_data', min_intervals['warning'], None, force_update))
