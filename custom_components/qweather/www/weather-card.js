@@ -4256,7 +4256,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   render() {
-    if (!this.entity || this.entity.state === 'unavailable') {
+    if (!this.entity || this.entity.state === 'unavailable' || this.entity.state === '无搜索城市') {
       return html`<div class="unavailable"></div>`;
     }
     // 获取自定义或默认的温度和湿度
