@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 4.5   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 4.6   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1261,7 +1261,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       // 设置20秒后自动隐藏
       this.apiTimer = setTimeout(() => {
         this._hideApiDetails();
-      }, 20000);
+      }, 40000);
     }
   }
 
@@ -1744,11 +1744,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         color = '#9E9E9E'; // 灰色（其他未知类别）
     }
     
-    return html`
-            <button class="toggle-btn-api" style = "color: ${color};"} @click="${() => this._toggleApiInfo()}">
-              ${category}
-            </button>
-            `
+    return html`<span class="toggle-btn-api" style="color: ${color};">${category}</span>`
   } 
 
   render() {
@@ -1816,12 +1812,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
                     html`<span class="warning-icon-text" style="color: ${warningColor}; cursor: pointer; user-select: none;" @click="${() => this._toggleWarningDetails()}">⚠ ${warning.length}</span>` : ''}
                 </div>
                 <div class="weather-info">
-                    <span style="color: ${secondaryColor};">${condition}  
-                      ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
-                      ${pressure}<span style="font-size: 0.6em;">hPa </span>
-                      ${visibility}<span style="font-size: 0.6em;">km </span>
-                    </span>
-                    ${this._getAqiCategoryHtml()}
+                    <button class="toggle-btn-api" @click="${() => this._toggleApiInfo()}">
+                      <span style="color: ${secondaryColor};">${condition}  
+                        ${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                        ${pressure}<span style="font-size: 0.6em;">hPa </span>
+                        ${visibility}<span style="font-size: 0.6em;">km </span>
+                      </span>
+                      ${this._getAqiCategoryHtml()}
+                    </button>
                 </div>
               </div>
             </div>
@@ -1851,16 +1849,15 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             </div>
           </div>
 
-          <!-- 预报内容 -->
-          ${this._renderDailyForecast()}
+        <!-- 空气质量详情 -->
+        ${this.showApiInfo ? this._renderAqiDetails() : ''}
+        <!-- 预报内容 -->
+        ${this._renderDailyForecast()}
 
         </div>
         
         <!-- 预警详情 -->
         ${this.showWarningDetails && hasWarning ? this._renderWarningDetails() : ''}
-
-        <!-- 空气质量详情 -->
-        ${this.showApiInfo && hasapi ? this._renderAqiDetails() : ''}
 
         <!-- 天气指数详情 -->    
         ${this.showIndicesDetails && hassairindices ? this._renderIndicesDetails() : ''}
@@ -2480,25 +2477,41 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _renderAqiDetails() {
-    if (!this.showApiInfo || !this.entity?.attributes?.aqi) {
-      return '';
-    }
-
-    const aqi = this.entity.attributes.aqi;
     const theme = this._evaluateTheme();
     const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
     const backgroundColor = theme === 'on' ? 'rgba(50,50,50, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const secondaryColor = theme === 'on' ? 'rgba(100, 100, 100, 0.7)' : 'rgba(200, 200, 200, 0.7)';
+    const secondaryColorblue = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
+    const summary = this.entity?.attributes?.minutely_summary  || ''; 
+    const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     
     // 获取AQI数值和等级
-    const aqiValue = aqi.aqi || aqi.value || 0;
-    const category = aqi.category || '未知';
-    const level = aqi.level || '未知';
-    const pm25 = aqi.pm2p5 || 0;
-    const pm10 = aqi.pm10 || 0;
-    const so2 = aqi.so2 || 0;
-    const no2 = aqi.no2 || 0;
-    const co = aqi.co || 0;
-    const o3 = aqi.o3 || 0;
+    const aqi = this.entity?.attributes?.aqi;
+    const hasaqi = aqi && aqi.aqi;
+    const aqiValue = aqi?.aqi || aqi?.value || 0;
+    const category = aqi?.category || '未知';
+    const level = aqi?.level || '未知';
+    const pm25 = aqi?.pm2p5 || 0;
+    const pm10 = aqi?.pm10 || 0;
+    const so2 = aqi?.so2 || 0;
+    const no2 = aqi?.no2 || 0;
+    const co = aqi?.co || 0;
+    const o3 = aqi?.o3 || 0;
+
+    // 获取温湿度信息
+    const temperature = this._formatTemperature(this.entity.attributes?.temperature);
+    const customTemp = this._getCustomTemperature();
+    const humidity = this._formatTemperature(this.entity.attributes?.humidity);
+    const customHumidity = this._getCustomHumidity();
+    const condition = this.entity.attributes?.condition_cn || '未知';
+    const cloud_coverage = this.entity.attributes?.cloud_coverage || 0;
+    const windSpeed = this.entity.attributes?.wind_speed || 0;
+    const windscale = this.entity.attributes?.windscale || 0;
+    const winddir = this.entity.attributes?.winddir || '';
+    const visibility = this.entity.attributes?.visibility || 0;
+    const feels_like  = this.entity?.attributes?.apparent_temperature || '';
+    const pressure = this.entity?.attributes?.pressure || '';
+    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || '';
     
     // 根据等级获取颜色
     const getAqiColor = (category) => {
@@ -2517,47 +2530,67 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     return html`
       <div class="aqi-details-card" style="background-color: ${backgroundColor}; border-radius: 2vw; padding: 2vw; margin-top: 1.5vw;">
-        
-        <!-- AQI总览 -->
-        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.5vw; padding: 0.5vw;  border-radius: 1.5vw;">
-          <div style="text-align: center;">
-            <div style="font-size: 4vw; font-weight: bold; color: ${aqiColor};">${aqiValue}</div>
-            <div style="font-size: 2.5vw; color: ${aqiColor}; margin: 0vw;">${category} ( ${level}级 )</div>
+        <!-- 温度湿度信息 -->
+        ${summary !== '' ? html`
+          <div style="color: ${secondaryColorblue}; font-size: 2.8vw; line-height: 3.5vw; margin-bottom: 1vw;">
+            天气概况：${summary}&ensp;&ensp;
           </div>
+        `: ''}
+        <div style="color: ${secondaryColorblue}; font-size: 2.8vw; line-height: 3.5vw;">
+          天气温度：${temperature}<span style="font-size: 0.8em;">℃</span>&ensp;&ensp;
+          天气湿度：${humidity}<span style="font-size: 0.8em;">%</span>&ensp;
+        </div>
+        <div style="color: ${secondaryColorblue}; font-size: 2.8vw; line-height: 3.5vw;">
+          体感温度：${feels_like}<span style="font-size: 0.8em;">℃</span>&ensp;&ensp;
+        </div>
+        <div style="color: ${secondaryColorblue}; font-size: 2.8vw; line-height: 3.5vw;">
+          ${customTemp !== null ? html`传感器温度：${customTemp}<span style="font-size: 0.8em">℃</span>&ensp;&ensp;`: ''}
+          ${customHumidity !== null ? html`传感器湿度：${customHumidity}<span style="font-size: 0.8em;">%</span>&ensp;`: ''}
         </div>
         
-        <!-- 污染物详情 -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1vw;">
-          <div style="text-align: center; padding: 0.5vw;border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">PM2.5</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${pm25} μg/m³</div>
-          </div>
-          
-          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">PM10</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${pm10} μg/m³</div>
-          </div>
-          
-          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">SO₂</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${so2} μg/m³</div>
-          </div>
-          
-          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">NO₂</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${no2} μg/m³</div>
-          </div>
-          
-          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">CO</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${co} mg/m³</div>
-          </div>
-          
-          <div style="text-align: center; padding: 0.5vw; border-radius: 1vw;">
-            <div style="font-size: 2.2vw; font-weight: bold; color: ${textcolor};">O₃</div>
-            <div style="font-size: 2vw; color: ${textcolor};">${o3} μg/m³</div>
-          </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;风速: ${windSpeed} <span style="font-size: 0.8em;">km/h </span>（${windscale}级  ${winddir}）&ensp;
         </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;气压: ${pressure} <span style="font-size: 0.8em;">hPa</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;云量: ${cloud_coverage} <span style="font-size: 0.8em;">%</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;紫外线: ${uv_index} <span style="font-size: 0.8em;">级</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;能见度: ${visibility} <span style="font-size: 0.8em;">km/h </span>&ensp;
+        </div>
+
+        ${this.showApiInfo && hasaqi ? html`
+        <!-- AQI信息 -->
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 2vw;">
+          &emsp;&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.8vw; line-height: 3.5vw;">
+          空气质量指数: ${aqiValue}<span style="color: ${aqiColor}">（ ${level}级 ${category}）</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;PM2.5: ${pm25} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;PM10: ${pm10} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;SO₂: ${so2} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;NO₂: ${no2} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;CO: ${co} <span style="font-size: 0.8em;">mg/m³</span>&ensp;
+        </div>
+        <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
+          &emsp;&ensp;O₃: ${o3} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
+        </div>
+        ` : ''}
       </div>
     `;
   }
@@ -3647,7 +3680,10 @@ class XiaoshiWeatherPadCard extends LitElement {
         entity: this.config.entity,
         theme:  this._evaluateTheme(),
         visual_style: this.config.visual_style,
-        popup_style: this.config.popup_style
+        popup_style: this.config.popup_style,
+        use_custom_entities: this.config.use_custom_entities,
+        temperature_entity: this.config.temperature_entity,
+        humidity_entity: this.config.humidity_entity
       };
       
       const popupContent = `
@@ -5012,6 +5048,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         align-items: center;
         margin-left: 25px;
         margin-right: 0px;
+        margin-bottom: -20px;
         height: 60px;
         font-size: 20px;
       }
@@ -5025,10 +5062,12 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
       .hourly-modal-header2 {
         display: flex;
-        justify-content: flex-end;
+        justify-content: flex-start;
         align-items: start;
         margin-right: 0px;
-        height: 30px;
+        margin-top: -10px;
+        margin-bottom: 10px;
+        height: 20px;
         font-size: 15px;
       }
       .hourly-modal-header2 h3 {
@@ -5036,18 +5075,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-size: 15px;
       }
 
-      .hourly-modal-header3 {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-left: 25px;
-        margin-right: 0px;
-        height: 20px;
-      }
-      .hourly-modal-header3 h3 {
-        font-weight: bold;
-        font-size: 18px;
-      }
       .hourly-close-btn {
         background: none;
         border: none;
@@ -5172,6 +5199,8 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     if (!this.hass || !this.config) return;
 
     this.entity = this.hass.states[this.config.entity];
+    this.temperature_entity = this.hass.states[this.config.temperature_entity];
+    this.humidity_entity = this.hass.states[this.config.humidity_entity];
   }
 
   _getInstanceId() {
@@ -5348,7 +5377,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       return null;
     }
     
-    const temp = this.hass.states[this.config.temperature_entity].state;
+    const temp = this.hass.states[this.config?.temperature_entity].state;
     const tempValue = parseFloat(temp);
     
     if (isNaN(tempValue)) {
@@ -5487,19 +5516,20 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
     const summary = this.entity?.attributes?.minutely_summary  || ''; 
-
+    const windscale = this.entity?.attributes?.windscale || '';
+    const winddir = this.entity?.attributes?.winddir || '';
+    const visibility = this.entity?.attributes?.visibility || '';
+    const cloud_coverage  = this.entity?.attributes?.cloud_coverage || '';
+    const feels_like  = this.entity?.attributes?.apparent_temperature || '';
+    const pressure = this.entity?.attributes?.pressure || '';
+    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || '';
     return html`      
       <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
           <div class="hourly-modal-header">
             <h3 style="color: ${fgColor};">
-             ${hasminutely ? "详细天气预报": "24小时天气预报"}
+             ${hasminutely ? "详细天气: "+summary: "24小时天气预报"}
             </h3>
             <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
-          </div>
-          <div class="hourly-modal-header3">
-            <h3 style="color: ${fgColor};">
-             ${hasminutely ? summary: ""}
-            </h3>
           </div>
           <div class="hourly-modal-body">
             <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
@@ -5512,12 +5542,22 @@ class XiaoshiHourlyWeatherCard extends LitElement {
                     </div>
                     <div class="weather-details">
                       <div class="weather-temperature">
-                        ${temperature}<font size="1px"><b> ℃&ensp;</b></font>
-                        ${humidity}<font size="1px"><b> % </b></font>
+                        ${this.entity.attributes?.temperature}<font size="1px"><b> ℃（天气温度）&ensp;</b></font>
+                        ${feels_like}<span style="font-size: 0.6em;">℃（体感温度）</span>&ensp;
+                        ${customTemp !== null ? html`${customTemp}<span style="font-size: 0.6em">℃（传感器温度）</span>&ensp;`: ''}
+
+                        ${this.entity.attributes?.humidity}<font size="1px"><b> %（天气湿度）&ensp;</b></font>
+                        ${customHumidity !== null ? html`${customHumidity}<font size="1px"><b> %（传感器湿度）&ensp;</b></font>`: ''}
                       </div>
                       <div class="weather-info">
-                        <span style="color: ${secondaryColor};">${condition}   
-                          ${windSpeed}<span style="font-size: 0.6em;">km/h </span> 
+                        <span style="color: ${secondaryColor};">${condition}&ensp;
+                          气压:${pressure}<span style="font-size: 0.6em;">hPa</span>&ensp;
+                          云量:${cloud_coverage}<span style="font-size: 0.6em;">%</span>&ensp;
+                          风速:${windSpeed}<span style="font-size: 0.6em;">km/h </span>
+                          (${windscale}<span style="font-size: 0.6em;">级  ${winddir}</span>)&ensp;
+                          能见度:${visibility}<span style="font-size: 0.6em;">km/h </span>&ensp;
+                          紫外线:${uv_index}<span style="font-size: 0.6em;">级</span>&ensp;
+                          空气质量:
                         </span>
                         ${this._getAqiCategoryHtml()}
                       </div>
@@ -5527,7 +5567,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
                 
                 <!-- 小时预报 -->
                  ${hasminutely ? html`<div class="hourly-modal-header2">
-                    <h3 style="color: ${fgColor};">24小时天气预报</h3>
+                    <h3 style="color: ${fgColor};">小时天气预报</h3>
                   </div>` : ''}
                 ${this._renderHourlyForecast()}
 
