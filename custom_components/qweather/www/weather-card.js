@@ -1752,19 +1752,19 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   } 
 
   render() {
-    if (this.mode !== "搜索城市" && (!this.entity || this.entity.state === 'unavailable')) {
+    if (this.mode !== "搜索城市" && (!this.entity || this.entity.state === '无搜索城市' || this.entity.state === 'unavailable')) {
       return html`<div class="unavailable"> </div>`;
     }
 
-    else if (this.mode !== "搜索城市" && (this.entity || this.entity.state !== 'unavailable')) {
+    else if (this.mode !== "搜索城市" && (this.entity || this.entity.state !== 'unavailable' || this.entity.state !== '无搜索城市')) {
       return this._rendermain();
     }
 
-    else if (this.mode === "搜索城市" && (!this.entity || this.entity.state === 'unavailable')) {
+    else if (this.mode === "搜索城市" && (!this.entity || this.entity.state === 'unavailable' || this.entity.state === '无搜索城市')) {
       return  html`${this._renderInput()}`;
     }
 
-    else if (this.mode === "搜索城市" && (this.entity || this.entity.state !== 'unavailable')) {
+    else if (this.mode === "搜索城市" && (this.entity || this.entity.state !== 'unavailable' || this.entity.state !== '无搜索城市')) {
       return html`${this._rendermain()} <div class="input-gap"> </div> ${this._renderInput()}`;
     }
   }
