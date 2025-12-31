@@ -97,6 +97,13 @@ _LOGGER = logging.getLogger(__name__)
 # 设置日志级别为DEBUG，确保所有调试日志都能显示
 _LOGGER.setLevel(logging.DEBUG)
 DEFAULT_TIME = dt_util.now()
+
+def create_no_city_entity(config_entry):
+    """创建无搜索城市实体"""
+    name = config_entry.data.get(CONF_NAME)
+    unique_id = config_entry.unique_id
+    return NoCityWeather(unique_id, name)
+
 # 集成安装
 async def async_setup_entry(hass, config_entry, async_add_entities):
     
@@ -120,6 +127,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         # 搜索城市模式
         city = config_entry.data.get("城市搜索")
         if not city:
+            _LOGGER.debug(f"城市搜索为空，跳过")
+            # 创建无搜索城市实体
+            no_city_entity = create_no_city_entity(config_entry)
+            async_add_entities([no_city_entity], True)
             return
         
         # 调用接口获取经纬度
@@ -218,6 +229,58 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         _LOGGER.info(f"成功添加天气实体: {name}")
     else:
         _LOGGER.error("未能获取有效天气数据，无法创建实体")
+
+class NoCityWeather(WeatherEntity):
+    """无搜索城市实体，显示固定状态"""
+    def __init__(self, unique_id, name):
+        """Initialize the no city weather entity."""
+        self._name = name
+        self._unique_id = unique_id
+        self._attr_native_temperature = None
+        self._attr_condition = None
+        self._attr_humidity = None
+        self._attr_native_pressure = None
+        self._attr_native_wind_speed = None
+        self._attr_wind_bearing = None
+        self._attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
+        self._attr_native_pressure_unit = UnitOfPressure.HPA
+        self._attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+        self._attr_native_visibility_unit = UnitOfLength.KILOMETERS
+        self._attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
+        self._attr_supported_features = 0
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return self._name
+
+    @property
+    def unique_id(self):
+        """Return a unique_id for this entity."""
+        if self._unique_id:
+            return f"{DOMAIN}_{self._unique_id}"
+        return f"{DOMAIN}_{self._name}"
+
+    @property
+    def device_info(self):
+        """Return the device info."""
+        from homeassistant.helpers.device_registry import DeviceEntryType
+        return {
+            "identifiers": {(DOMAIN, self._unique_id)},
+            "name": self.name,
+            "manufacturer": MANUFACTURER,
+            "model": "和风天气API",
+            "sw_version": VERSION
+        }
+
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        return "无搜索城市"
+
+    async def async_update(self):
+        """Update the entity - no-op for this entity."""
+        pass
 
 class HeFengWeather(WeatherEntity):
     """Representation of a weather condition."""
