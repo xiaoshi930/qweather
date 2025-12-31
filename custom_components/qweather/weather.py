@@ -483,7 +483,7 @@ class HeFengWeather(WeatherEntity):
                 "cloud_coverage": self._cloud,
                 "visibility": self._vis,
                 "dew_point": self._dew,
-                "feelslike": self._feelslike,
+                "apparent_temperature": self._feelslike,
                 ATTR_UPDATE_TIME: self._updatetime,
                 ATTR_MINUTELY_SUMMARY: self._minutely_summary,
                 "aqis": self._aqi.get("aqi") if isinstance(self._aqi, dict) else None,
@@ -559,12 +559,14 @@ class Forecast:
     native_precipitation: float = None
     humidity: float = None
     native_pressure: float = None
-    cloud_coverage: int = None
     textnight: str = None
     winddirday: str = None
     winddirnight: str = None
     windscaleday: str = None
     windscalenight: str = None
+    visibility: int = None
+    cloud_coverage: int = None
+    uv_index: int = None
     is_daytime: bool = False
 
 @dataclass
@@ -1228,7 +1230,10 @@ class WeatherData(object):
                         "windSpeedNight": hourly_data.get("windSpeed", ""),
                         "humidity": yesterday_weather.get("humidity", 0),
                         "precip": yesterday_weather.get("precip", 0),
-                        "pressure": yesterday_weather.get("pressure", 0)
+                        "pressure": yesterday_weather.get("pressure", 0), 
+                        "cloud_coverage": "",
+                        "visibility": "",
+                        "uv_index": ""
                     }
                     daily_list.insert(0, yesterday_forecast)
                     yesterday_inserted = True
@@ -1267,7 +1272,9 @@ class WeatherData(object):
                     winddirnight=daily.get("windDirNight", ""),
                     windscaleday=daily.get("windScaleDay", ""),
                     windscalenight=daily.get("windScaleNight", ""),
-                    cloud_coverage=int(daily.get("cloud", 0))
+                    cloud_coverage=int(daily.get("cloud", 0)),
+                    visibility=int(daily.get("vis", 0)),
+                    uv_index=int(daily.get("uvIndex", 0))
                 ))
         
         # 处理小时预报
