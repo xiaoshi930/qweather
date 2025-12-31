@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 4.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 4.4   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -3081,9 +3081,11 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       /*天气头部 图标*/
       .weather-icon {
-        width: 50px;
+        width: 45px;
+        min-width: 45px;
+        max-width: 45px;
         height: 50px;
-        margin-right: 16px;
+        margin-right: 7px;
         margin-bottom: 0px;
       }
 
@@ -3858,7 +3860,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     
     return html`
             <button class="toggle-btn-aqi" style="color: ${color};" @click="${() => this._toggleApiInfo()}">
-              ${category}
+              ${category.slice(0,2)}
             </button>
             ` 
   }
