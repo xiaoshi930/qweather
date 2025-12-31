@@ -24,6 +24,8 @@ except ImportError:
                 self.path = path
                 self.cache_headers = cache_headers
 _LOGGER = logging.getLogger(__name__)
+# 设置日志级别为INFO，确保删除日志能显示
+_LOGGER.setLevel(logging.INFO)
 CONFIG_SCHEMA = cv.deprecated(DOMAIN)
 
 # 定义信号常量
@@ -48,4 +50,52 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """卸载QWeather配置项。"""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    # 清理定时任务
+    unique_id = entry.unique_id
+    if DOMAIN in hass.data and unique_id in hass.data[DOMAIN]:
+        # 取消定时更新任务
+        update_listener = hass.data[DOMAIN][unique_id].get('update_listener')
+        if update_listener:
+            update_listener()
+            _LOGGER.info(f"已取消定时更新任务: {unique_id}")
+        
+        # 清理hass.data中的数据
+        del hass.data[DOMAIN][unique_id]
+        _LOGGER.info(f"已清理hass.data中的数据: {unique_id}")
+        
+        # 如果DOMAIN下没有其他条目，清理整个DOMAIN
+        if not hass.data[DOMAIN]:
+            del hass.data[DOMAIN]
+            _LOGGER.info("已清理hass.data中的DOMAIN数据")
+    
+    # 卸载平台
+    result = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    _LOGGER.info(f"卸载平台结果: {result}")
+    return result
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """删除QWeather配置项时调用，清理相关资源。"""
+    unique_id = entry.unique_id
+    _LOGGER.info(f"开始删除配置项: {unique_id}")
+    
+    # 清理定时任务（注意：async_unload_entry 已经清理过，这里只是双重保险）
+    if DOMAIN in hass.data and unique_id in hass.data[DOMAIN]:
+        # 取消定时更新任务
+        update_listener = hass.data[DOMAIN][unique_id].get('update_listener')
+        if update_listener:
+            update_listener()
+            _LOGGER.info(f"已取消定时更新任务: {unique_id}")
+        
+        # 清理hass.data中的数据
+        del hass.data[DOMAIN][unique_id]
+        _LOGGER.info(f"已清理hass.data中的数据: {unique_id}")
+        
+        # 如果DOMAIN下没有其他条目，清理整个DOMAIN
+        if not hass.data[DOMAIN]:
+            del hass.data[DOMAIN]
+            _LOGGER.info("已清理hass.data中的DOMAIN数据")
+    else:
+        # 数据已被 async_unload_entry 清理，这是正常的
+        _LOGGER.info(f"配置项数据已被卸载时清理: {unique_id}")
+    
+    _LOGGER.info(f"配置项删除完成: {unique_id}")
