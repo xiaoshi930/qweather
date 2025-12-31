@@ -2549,7 +2549,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         </div>
         
         <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
-          &emsp;&ensp;风速: ${windSpeed} <span style="font-size: 0.8em;">km/h </span>（${windscale}级  ${winddir}）&ensp;
+          &emsp;&ensp;风速: ${windSpeed} <span style="font-size: 0.8em;">km/h</span>（${windscale}级 ${winddir}）&ensp;
         </div>
         <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
           &emsp;&ensp;气压: ${pressure} <span style="font-size: 0.8em;">hPa</span>&ensp;
@@ -2570,7 +2570,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           &emsp;&ensp;
         </div>
         <div style="color: ${textcolor}; font-size: 2.8vw; line-height: 3.5vw;">
-          空气质量指数: ${aqiValue}<span style="color: ${aqiColor}">（ ${level}级 ${category}）</span>&ensp;
+          空气质量指数: ${aqiValue}<span style="color: ${aqiColor}">（${level}级 ${category}）</span>&ensp;
         </div>
         <div style="color: ${textcolor}; font-size: 2.2vw; line-height: 3.5vw;">
           &emsp;&ensp;PM2.5: ${pm25} <span style="font-size: 0.8em;">μg/m³</span>&ensp;
