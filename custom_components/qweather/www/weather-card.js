@@ -1470,7 +1470,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       
       // 如果所有温度相等，将位置设置在中间
       if (allEqual) {
-        const middlePosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+        const middlePosition = availableHeight / 2;
         boundsList = forecastData.map(() => ({
           highTop: middlePosition,
           lowTop: middlePosition
@@ -2077,12 +2077,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             let finalTopPosition;
             if (allEqual) {
               // 如果所有温度相等，将位置设置在中间
-              finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+              finalTopPosition = availableHeight / 2;
             } else {
               const unitPosition = range === 0 ? 0 : availableHeight / range;
               const tempValue = parseFloat(hour.native_temperature) || 0;
               const topPosition = (maxTemp - tempValue) * unitPosition;
-              finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
+              finalTopPosition = Math.max(0, Math.min(topPosition, availableHeight));
             }
             
             // 计算雨量矩形高度和位置
@@ -2193,12 +2193,12 @@ class XiaoshiWeatherPhoneCard extends LitElement {
             let finalTopPosition;
             if (allEqual) {
               // 如果所有温度相等，将位置设置在中间
-              finalTopPosition = (CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW) / 2;
+              finalTopPosition = availableHeight / 2;
             } else {
               const unitPosition = range === 0 ? 0 : availableHeight / range;
               const tempValue = parseFloat(minute.native_temperature) || 0;
               const topPosition = (maxTemp - tempValue) * unitPosition;
-              finalTopPosition = Math.max(0, Math.min(topPosition, CONTAINER_HEIGHT_VW - BUTTON_HEIGHT_VW));
+              finalTopPosition = Math.max(0, Math.min(topPosition, availableHeight));
             }
             
             // 计算雨量矩形高度和位置
@@ -3958,8 +3958,8 @@ class XiaoshiWeatherPadCard extends LitElement {
     // 低温矩形的上边界位置（温度越低，top值越大）
     const lowTop = availableHeight - (lowTemp - minTemp) * unitPosition;
     
-    const finalHighTop = Math.max(0, Math.min(highTop, CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX));
-    const finalLowTop = Math.max(0, Math.min(lowTop, CONTAINER_HEIGHT_PX - BUTTON_HEIGHT_PX));
+    const finalHighTop = Math.max(0, Math.min(highTop, availableHeight));
+    const finalLowTop = Math.max(0, Math.min(lowTop, availableHeight));
     
     return { 
       highTop: finalHighTop, 
@@ -5309,7 +5309,13 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     }
     
     // 计算曲线范围
-    const curveTop = Math.min(...positions);
+    let curveTop;
+    if (range === 0) {
+      // 如果所有温度相等，curveTop 设为 0，使曲线居中
+      curveTop = 0;
+    } else {
+      curveTop = Math.min(...positions);
+    }
     const curveBottom = Math.max(...positions) + BUTTON_HEIGHT_PX;
     const curveHeight = curveBottom - curveTop;
 
