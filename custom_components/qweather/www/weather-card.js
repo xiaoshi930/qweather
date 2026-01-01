@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 4.7   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 4.8   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1546,104 +1546,215 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     return Math.random().toString(36).substr(2, 9);
   }
 
-  _drawTemperatureCurve(canvasId, points, color) {
-    
+  _drawTemperatureCurve(canvasId, points, color, dashedSegmentInfo = null) {
+
     requestAnimationFrame(() => {
       // 先在shadow DOM中查找，再在document中查找
       let canvas = this.shadowRoot?.getElementById(canvasId) || document.getElementById(canvasId);
-      
+
       if (!canvas) {
         // 通过类名查找
         const className = canvasId.includes('high') ? 'temp-line-canvas-high' : 'temp-line-canvas-low';
         canvas = this.shadowRoot?.querySelector(`.${className}`) || document.querySelector(`.${className}`);
       }
-      
+
       if (!canvas) {
         return;
       }
-      
+
       const ctx = canvas.getContext('2d');
       const rect = canvas.getBoundingClientRect();
-      
+
       // 设置Canvas实际尺寸
       canvas.width = rect.width *3;
       canvas.height = rect.height *3;
-      
+
       if (points.length < 2) {
         return;
       }
-      
+
       // 清除画布
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // 设置线条样式
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 6; // 固定线宽
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // 开始绘制路径
-      ctx.beginPath();
-      
+
       const { CONTAINER_HEIGHT_VW } = XiaoshiWeatherPhoneCard.TEMPERATURE_CONSTANTS;
-      
+
       // 转换所有点为Canvas坐标
       const canvasPoints = points.map((point, index) => {
         const x = (point.x / 100) * canvas.width;
         const y = (point.y / CONTAINER_HEIGHT_VW) * canvas.height;
         return { x, y };
       });
-      
+
       if (canvasPoints.length < 2) {
         // 如果只有两个点，直接画直线
         if (canvasPoints.length === 2) {
           ctx.beginPath();
           ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
           ctx.lineTo(canvasPoints[1].x, canvasPoints[1].y);
+
+          // 应用虚线样式（如果有）
+          if (dashedSegmentInfo && dashedSegmentInfo.endIndex >= 0) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.6;
+            ctx.setLineDash([8, 8]);
+          } else {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 1;
+            ctx.setLineDash([]);
+          }
           ctx.stroke();
         }
         return;
       }
-      
-      // 开始绘制平滑曲线，确保通过所有原始点
-      ctx.beginPath();
-      ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
-      
+
       // 使用更保守的样条算法，减少曲线过度弯曲
       const tension = 0.2; // 减小张力系数，避免过度弯曲
-      
-      for (let i = 0; i < canvasPoints.length - 1; i++) {
-        const p0 = canvasPoints[Math.max(0, i - 1)];
-        const p1 = canvasPoints[i];
-        const p2 = canvasPoints[i + 1];
-        const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
-        
-        // 计算控制点，限制控制点距离，避免过度弯曲
-        const dx1 = (p2.x - p0.x) * tension;
-        const dy1 = (p2.y - p0.y) * tension;
-        const dx2 = (p3.x - p1.x) * tension;
-        const dy2 = (p3.y - p1.y) * tension;
-        
-        // 限制控制点的垂直距离，防止曲线超出边界
-        const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
-        const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
-        const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
-        
-        const cp1x = p1.x + dx1;
-        const cp1y = p1.y + limitedDy1;
-        const cp2x = p2.x - dx2;
-        const cp2y = p2.y - limitedDy2;
-        
-        // 如果是第一段，使用二次贝塞尔
-        if (i === 0) {
-          ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
-        } else {
-          // 使用三次贝塞尔曲线，确保通过原始点
+
+      // 判断是否需要分两段绘制
+      if (dashedSegmentInfo && dashedSegmentInfo.endIndex >= 0 && dashedSegmentInfo.endIndex < canvasPoints.length - 1) {
+        // 第一段：虚线，0.6透明度（前天、昨天、今天的左半部分）
+        const dashedEndIndex = Math.min(dashedSegmentInfo.endIndex, canvasPoints.length - 2);
+        // 分割点位于"今天"的中心位置
+        const splitX = canvasPoints[dashedEndIndex].x;
+
+        // 绘制第一段（虚线）
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 0.6;
+        ctx.setLineDash([6, 12]);
+        ctx.beginPath();
+
+        for (let i = 0; i <= dashedEndIndex; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[Math.min(canvasPoints.length - 1, i + 1)];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          // 计算曲线终点，需要在splitX处截断
+          const isLastSegment = i === dashedEndIndex;
+
+          if (i === 0) {
+            ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
+          }
+
+          if (isLastSegment) {
+            // 最后一段画到"今天"中心点，使用更长的虚线段以保持虚线效果
+            ctx.lineTo(splitX, p1.y);
+          } else {
+            if (i === 0) {
+              ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
+            } else {
+              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+            }
+          }
+        }
+        ctx.stroke();
+
+        // 绘制第二段（实线，正常透明度）
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+
+        // 从"今天"中心点开始绘制第二段
+        for (let i = dashedEndIndex; i < canvasPoints.length - 1; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[i + 1];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          const isFirstSegment = i === dashedEndIndex;
+          const startPointX = isFirstSegment ? splitX : p1.x;
+          const startPointY = isFirstSegment ? p1.y : p1.y;
+
+          if (isFirstSegment) {
+            ctx.moveTo(startPointX, startPointY);
+          }
+
           ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
+        ctx.stroke();
+      } else {
+        // 没有虚线段，正常绘制
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+
+        // 开始绘制平滑曲线，确保通过所有原始点
+        ctx.beginPath();
+        ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
+
+        for (let i = 0; i < canvasPoints.length - 1; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[i + 1];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          if (i === 0) {
+            ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
+          } else {
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+          }
+        }
+
+        ctx.stroke();
       }
-      
-      ctx.stroke();
     });
   }
 
@@ -1892,7 +2003,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (this.forecastMode === 'minutely') {
       return this._renderMinutelyForecast();
     }
-    
+
     const forecastDays = this._getForecastDays();
     const extremes = this._getTemperatureExtremes();
     const theme = this._evaluateTheme();
@@ -1902,17 +2013,30 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     // 生成温度曲线坐标
     const highTempData = this._generateTemperatureLine(forecastDays, extremes, true);
     const lowTempData = this._generateTemperatureLine(forecastDays, extremes, false);
-    
+
     // 使用组件实例ID + Canvas ID，避免多实例冲突
     const instanceId = this._getInstanceId();
     const highCanvasId = `high-temp-canvas-${instanceId}`;
     const lowCanvasId = `low-temp-canvas-${instanceId}`;
-    
+
+    // 查找"今天"的索引，用于确定虚线段的结束位置（今天的左半部分）
+    let todayIndex = -1;
+    forecastDays.forEach((day, index) => {
+      const date = new Date(day.datetime);
+      const weekday = this._getWeekday(date);
+      if (weekday === '今天') {
+        todayIndex = index;
+      }
+    });
+
+    // 计算虚线段结束索引（今天的左半部分，即todayIndex）
+    const dashedSegmentInfo = { endIndex: todayIndex };
+
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34)');
-        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243)');
+        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgb(255, 87, 34)', dashedSegmentInfo);
+        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgb(33, 150, 243)', dashedSegmentInfo);
       }, 50);
     });
     
@@ -1932,7 +2056,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
           const highTemp = this._formatTemperature(day.native_temperature);
           const lowTemp = this._formatTemperature(day.native_temp_low);
           
-          // 如果是昨天，设置透明度 
+          // 如果是昨天/前天，设置透明度 
           const isYesterday = weekday !== '昨天' && weekday !== '前天';
           const opacity = isYesterday ? 1 : 0.5;
           const theme = this._evaluateTheme();
@@ -4010,7 +4134,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     return this._instanceId;
   }
 
-  _drawTemperatureCurve(canvasId, points, color) {
+  _drawTemperatureCurve(canvasId, points, color, dashedSegmentInfo = null) {
     
     requestAnimationFrame(() => {
       // 先在shadow DOM中查找，再在document中查找
@@ -4049,15 +4173,6 @@ class XiaoshiWeatherPadCard extends LitElement {
       // 清除画布
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // 设置线条样式
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 6; // 固定线宽
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // 开始绘制路径
-      ctx.beginPath();
-      
       const { CONTAINER_HEIGHT_PX } = XiaoshiWeatherPadCard.TEMPERATURE_CONSTANTS;
       
       // 转换所有点为Canvas坐标
@@ -4073,50 +4188,173 @@ class XiaoshiWeatherPadCard extends LitElement {
           ctx.beginPath();
           ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
           ctx.lineTo(canvasPoints[1].x, canvasPoints[1].y);
+
+          // 应用虚线样式（如果有）
+          if (dashedSegmentInfo && dashedSegmentInfo.endIndex >= 0) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.6;
+            ctx.setLineDash([8, 8]);
+          } else {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 1;
+            ctx.setLineDash([]);
+          }
           ctx.stroke();
         }
         return;
       }
       
-      // 开始绘制平滑曲线，确保通过所有原始点
-      ctx.beginPath();
-      ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
-      
       // 使用更保守的样条算法，减少曲线过度弯曲
       const tension = 0.2; // 减小张力系数，避免过度弯曲
-      
-      for (let i = 0; i < canvasPoints.length - 1; i++) {
-        const p0 = canvasPoints[Math.max(0, i - 1)];
-        const p1 = canvasPoints[i];
-        const p2 = canvasPoints[i + 1];
-        const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
-        
-        // 计算控制点，限制控制点距离，避免过度弯曲
-        const dx1 = (p2.x - p0.x) * tension;
-        const dy1 = (p2.y - p0.y) * tension;
-        const dx2 = (p3.x - p1.x) * tension;
-        const dy2 = (p3.y - p1.y) * tension;
-        
-        // 限制控制点的垂直距离，防止曲线超出边界
-        const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
-        const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
-        const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
-        
-        const cp1x = p1.x + dx1;
-        const cp1y = p1.y + limitedDy1;
-        const cp2x = p2.x - dx2;
-        const cp2y = p2.y - limitedDy2;
-        
-        // 如果是第一段，使用二次贝塞尔
-        if (i === 0) {
-          ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
-        } else {
-          // 使用三次贝塞尔曲线，确保通过原始点
+
+      // 判断是否需要分两段绘制
+      if (dashedSegmentInfo && dashedSegmentInfo.endIndex >= 0 && dashedSegmentInfo.endIndex < canvasPoints.length - 1) {
+        // 第一段：虚线，0.6透明度（前天、昨天、今天的左半部分）
+        const dashedEndIndex = Math.min(dashedSegmentInfo.endIndex, canvasPoints.length - 2);
+        // 分割点位于"今天"的中心位置
+        const splitX = canvasPoints[dashedEndIndex].x;
+
+        // 解析颜色并设置透明度
+        const colorWithOpacity = color.replace(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/, 'rgba($1, $2, $3, 0.6)').replace(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)/, 'rgba($1, $2, $3, 0.6)');
+
+        // 绘制第一段（虚线）
+        ctx.strokeStyle = colorWithOpacity;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([6, 12]);
+        ctx.beginPath();
+
+        for (let i = 0; i <= dashedEndIndex; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[Math.min(canvasPoints.length - 1, i + 1)];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          // 计算曲线终点，需要在splitX处截断
+          const isLastSegment = i === dashedEndIndex;
+
+          if (i === 0) {
+            ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
+          }
+
+          if (isLastSegment) {
+            // 最后一段画到"今天"中心点
+            ctx.lineTo(splitX, p1.y);
+          } else {
+            if (i === 0) {
+              ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
+            } else {
+              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+            }
+          }
+        }
+        ctx.stroke();
+
+        // 绘制第二段（实线，正常透明度）
+        ctx.strokeStyle = color.replace(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)/, 'rgba($1, $2, $3, 1)');
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+
+        // 从"今天"中心点开始绘制第二段
+        for (let i = dashedEndIndex; i < canvasPoints.length - 1; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[i + 1];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          const isFirstSegment = i === dashedEndIndex;
+          const startPointX = isFirstSegment ? splitX : p1.x;
+          const startPointY = isFirstSegment ? p1.y : p1.y;
+
+          if (isFirstSegment) {
+            ctx.moveTo(startPointX, startPointY);
+          }
+
           ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
+        ctx.stroke();
+      } else {
+        // 没有虚线段，正常绘制
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+
+        // 开始绘制平滑曲线，确保通过所有原始点
+        ctx.beginPath();
+        ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
+
+        for (let i = 0; i < canvasPoints.length - 1; i++) {
+          const p0 = canvasPoints[Math.max(0, i - 1)];
+          const p1 = canvasPoints[i];
+          const p2 = canvasPoints[i + 1];
+          const p3 = canvasPoints[Math.min(canvasPoints.length - 1, i + 2)];
+
+          const dx1 = (p2.x - p0.x) * tension;
+          const dy1 = (p2.y - p0.y) * tension;
+          const dx2 = (p3.x - p1.x) * tension;
+          const dy2 = (p3.y - p1.y) * tension;
+
+          const maxControlDistance = Math.abs(p2.x - p1.x) * 0.3;
+          const limitedDy1 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy1));
+          const limitedDy2 = Math.max(-maxControlDistance, Math.min(maxControlDistance, dy2));
+
+          const cp1x = p1.x + dx1;
+          const cp1y = p1.y + limitedDy1;
+          const cp2x = p2.x - dx2;
+          const cp2y = p2.y - limitedDy2;
+
+          if (i === 0) {
+            ctx.quadraticCurveTo(cp1x, cp1y, p2.x, p2.y);
+          } else {
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+          }
+        }
+
+        ctx.stroke();
       }
-      
-      ctx.stroke();
     });
   }
 
@@ -4172,17 +4410,30 @@ class XiaoshiWeatherPadCard extends LitElement {
     // 生成温度曲线坐标
     const highTempData = this._generateTemperatureLine(forecastDays, extremes, true);
     const lowTempData = this._generateTemperatureLine(forecastDays, extremes, false);
-    
+
     // 使用组件实例ID + Canvas ID，避免多实例冲突
     const instanceId = this._getInstanceId();
     const highCanvasId = `high-temp-canvas-${instanceId}`;
     const lowCanvasId = `low-temp-canvas-${instanceId}`;
-    
+
+    // 查找"今天"的索引，用于确定虚线段的结束位置（今天的左半部分）
+    let todayIndex = -1;
+    forecastDays.forEach((day, index) => {
+      const date = new Date(day.datetime);
+      const weekday = this._getWeekday(date);
+      if (weekday === '今天') {
+        todayIndex = index;
+      }
+    });
+
+    // 计算虚线段结束索引（今天的左半部分，即todayIndex）
+    const dashedSegmentInfo = { endIndex: todayIndex };
+
     // 在DOM更新完成后绘制曲线
     this.updateComplete.then(() => {
       setTimeout(() => {
-        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34)');
-        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243)');
+        this._drawTemperatureCurve(highCanvasId, highTempData.points, 'rgba(255, 87, 34, 1)', dashedSegmentInfo);
+        this._drawTemperatureCurve(lowCanvasId, lowTempData.points, 'rgba(33, 150, 243, 1)', dashedSegmentInfo);
       }, 50);
     });
     
@@ -6776,6 +7027,7 @@ class XiaoshiAqiWeatherCard extends LitElement {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
+        margin-bottom: 20px;
       }
 
       .pollutant-item {
@@ -6934,7 +7186,7 @@ class XiaoshiAqiWeatherCard extends LitElement {
     return html`
       <div class="aqi-card ${themeClass}">
           <div class="aqi-modal-header">
-            <h3 style="color: ${textcolor};">天气指数数据</h3>
+            <h3 style="color: ${textcolor};">空气质量数据</h3>
             <button class="aqi-close-btn" @click="${() => this._toggleAqiClose()}">×</button>
           </div>
         <!-- AQI总览 -->
