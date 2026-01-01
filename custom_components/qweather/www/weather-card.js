@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 4.6   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 4.7   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -2509,9 +2509,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const windscale = this.entity.attributes?.windscale || 0;
     const winddir = this.entity.attributes?.winddir || '';
     const visibility = this.entity.attributes?.visibility || 0;
-    const feels_like  = this.entity?.attributes?.apparent_temperature || '';
-    const pressure = this.entity?.attributes?.pressure || '';
-    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || '';
+    const feels_like  = this.entity?.attributes?.apparent_temperature || 0;
+    const pressure = this.entity?.attributes?.pressure || 0;
+    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || 0;
     
     // 根据等级获取颜色
     const getAqiColor = (category) => {
@@ -5504,7 +5504,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const temperature = customTemp || this._formatTemperature(this.entity.attributes?.temperature);
     const humidity = customHumidity || this._formatTemperature(this.entity.attributes?.humidity);
     const condition = this.entity.attributes?.condition_cn || '未知';
-    const windSpeed = this.entity.attributes?.wind_speed || 0;
     const theme = this._evaluateTheme();
 
     // 根据主题设置颜色
@@ -5516,13 +5515,15 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
     const summary = this.entity?.attributes?.minutely_summary  || ''; 
-    const windscale = this.entity?.attributes?.windscale || '';
-    const winddir = this.entity?.attributes?.winddir || '';
-    const visibility = this.entity?.attributes?.visibility || '';
-    const cloud_coverage  = this.entity?.attributes?.cloud_coverage || '';
-    const feels_like  = this.entity?.attributes?.apparent_temperature || '';
-    const pressure = this.entity?.attributes?.pressure || '';
-    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || '';
+    const cloud_coverage = this.entity.attributes?.cloud_coverage || 0;
+    const windSpeed = this.entity.attributes?.wind_speed || 0;
+    const windscale = this.entity.attributes?.windscale || 0;
+    const winddir = this.entity.attributes?.winddir || '';
+    const visibility = this.entity.attributes?.visibility || 0;
+    const feels_like  = this.entity?.attributes?.apparent_temperature || 0;
+    const pressure = this.entity?.attributes?.pressure || 0;
+    const uv_index = this.entity?.attributes?.daily_forecast[1]?.uv_index || 0;
+    
     return html`      
       <div class="hourly-modal-content" style="background-color: ${modalBgColor};" >
           <div class="hourly-modal-header">
