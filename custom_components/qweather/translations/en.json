@@ -1,4 +1,16 @@
 {
+    "services": {
+        "update_weather": {
+            "name": "Force Update",
+            "description": "Manually force update QWeather weather data",
+            "fields": {
+                "entity_id": {
+                    "name": "Weather Entity",
+                    "description": "Weather entity ID to update"
+                }
+            }
+        }
+    },
     "config": {
         "title": "Colorfulclouds Weather",
         "step": {
