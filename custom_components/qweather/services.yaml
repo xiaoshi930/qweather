@@ -1,0 +1,18 @@
+update_weather:
+  name: 强制更新
+  description: 手动强制更新QWeather天气数据
+  target:
+    entity:
+      domain: weather
+  fields:
+    entity_id:
+      name: 天气实体
+      description: 要更新的天气实体ID（已通过target自动填充）
+      required: false
+      example: weather.wo_de_jia
+      selector:
+        entity:
+          filter:
+            integration: qweather
+            domain: weather
+
