@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_registry import async_get as get_entity_regist
 from .const import DOMAIN, PLATFORMS
 from homeassistant.const import CONF_HOST, CONF_API_KEY, CONF_NAME, ATTR_ENTITY_ID
 from homeassistant.components.frontend import add_extra_js_url
+from .services import async_setup_services, async_unload_services
 try:
     from homeassistant.components.http.static import StaticPathConfig
 except ImportError:
@@ -43,7 +44,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """设置从配置项加载的QWeather组件。"""
     hass.data.setdefault(DOMAIN, {})
     await async_setup_weather_card(hass)
-    
+    await async_setup_services(hass)
+
     # 转发配置到平台
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -58,16 +60,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if update_listener:
             update_listener()
             _LOGGER.info(f"已取消定时更新任务: {unique_id}")
-        
+
         # 清理hass.data中的数据
         del hass.data[DOMAIN][unique_id]
         _LOGGER.info(f"已清理hass.data中的数据: {unique_id}")
-        
+
         # 如果DOMAIN下没有其他条目，清理整个DOMAIN
         if not hass.data[DOMAIN]:
             del hass.data[DOMAIN]
+            await async_unload_services(hass)
             _LOGGER.info("已清理hass.data中的DOMAIN数据")
-    
+
     # 卸载平台
     result = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     _LOGGER.info(f"卸载平台结果: {result}")
