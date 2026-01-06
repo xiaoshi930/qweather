@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 5.0   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 5.1   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -82,6 +82,18 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
         </div>
         
         <div class="form-group">
+          <label>打开卡片时自动更新数据</label>
+          <select
+            @change=${this._entityChanged}
+            .value=${this.config.auto_refresh_on_load !== undefined ? this.config.auto_refresh_on_load : false}
+            name="auto_refresh_on_load"
+          >
+            <option value=false>否（不自动更新）</option>
+            <option value=true>是（每次打开时自动更新）</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>视觉样式</label>
           <select 
             @change=${this._entityChanged}
@@ -163,7 +175,7 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
 
         <div class="form-group">
           <label>是否实体替换实时温湿度</label>
-          <select 
+          <select
             @change=${this._entityChanged}
             .value=${this.config.use_custom_entities !== undefined ? this.config.use_custom_entities : false}
             name="use_custom_entities"
@@ -172,7 +184,7 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
             <option value=true>是（使用自定义实体）</option>
           </select>
         </div>
-        
+
         <div class="form-group conditional-field ${this.config.use_custom_entities ? 'visible' : ''}" id="temperature-entity-group">
           <label>温度实体</label>
           <div class="entity-search-container">
@@ -235,12 +247,14 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
 
   _entityChanged(e) {
     const { name, value } = e.target;
-    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'city_entity' && name !== 'visual_style') return;
+    if (!value && name !== 'theme' && name !== 'mode' && name !== 'columns' && name !== 'use_custom_entities' && name !== 'temperature_entity' && name !== 'humidity_entity' && name !== 'city_entity' && name !== 'visual_style' && name !== 'auto_refresh_on_load') return;
 
     let processedValue = value;
     if (name === 'columns' ) {
       processedValue = parseInt(value);
     } else if (name === 'use_custom_entities') {
+      processedValue = value === 'true';
+    } else if (name === 'auto_refresh_on_load') {
       processedValue = value === 'true';
     }
     
@@ -1033,6 +1047,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     this._isEditing = false;
     this._pendingSave = false;
     this._forecastToggleState = 0; // 0: daily, 1: hourly, 2: minutely
+    this._hasAutoRefreshed = false; // 标记是否已执行自动刷新
   }
   
   _evaluateTheme() {
@@ -1071,6 +1086,13 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._updateEntities();
+    // 首次加载时自动刷新
+    if (this.config?.auto_refresh_on_load && !this._hasAutoRefreshed) {
+      this._hasAutoRefreshed = true;
+      setTimeout(() => {
+        this._refresh_weather();
+      }, 50); // 延迟500ms确保服务调用正常
+    }
   }
 
   updated(changedProperties) {
@@ -1965,6 +1987,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         <div class="update-time" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             ${this._getRelativeTime(update_time)}  
+              <button style="margin-left: 1vw; color: #04d2f6ff; background: none; border: none; cursor: pointer; font-size: 2vw; font-weight: bold;" 
+                @click="${() => this._refresh_weather()}">↺
+              </button>
           </div>
           
           <!-- 日出日落信息 - 放在右侧 -->
@@ -2796,13 +2821,21 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _setEntityValue() {
-    if (!this.city_entity) return; 
-    
+    if (!this.city_entity) return;
+
     this.hass.callService('text', 'set_value', {
       entity_id: this.city_entity,
       value: this._value,
     });
 
+  }
+
+  _refresh_weather() {
+    if (!this.config?.entity) return;
+
+    this.hass.callService('qweather', 'update_weather', {
+      entity_id: this.config.entity,
+    });
   }
 
   setConfig(config) {
