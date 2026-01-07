@@ -112,9 +112,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         await hass.http.async_register_static_paths([
             StaticPathConfig(ROOT_PATH, hass.config.path('custom_components/qweather/local'), False)
         ])
-        _LOGGER.debug("静态路径注册成功")
     except RuntimeError as e:
-        _LOGGER.debug(f"静态路径已注册，跳过: {str(e)}")
+        pass
     name = config_entry.data.get(CONF_NAME)
     host = config_entry.data.get(CONF_HOST, "api.qweather.com")
     api_key = config_entry.data.get(CONF_API_KEY)
@@ -128,6 +127,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         city = config_entry.data.get("城市搜索")
         if not city:
             _LOGGER.debug(f"城市搜索为空，跳过")
+            _LOGGER.info("*************************************************")
             # 创建无搜索城市实体
             no_city_entity = create_no_city_entity(config_entry)
             async_add_entities([no_city_entity], True)
@@ -168,6 +168,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # 优先从data中读取更新间隔值，因为这是用户最新设置的值
     if CONF_UPDATE_INTERVAL in config_entry.data:
         update_interval_minutes = int(config_entry.data.get(CONF_UPDATE_INTERVAL, 30))
+        _LOGGER.info("天气开始更新 #########################################")
         _LOGGER.debug(f"从data中读取的更新间隔时间: {update_interval_minutes} 分钟")
     else:
         # 如果data中没有，则从options中读取
@@ -190,9 +191,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     config[CONF_ENABLE_INDICES] = config_entry.data.get(CONF_ENABLE_INDICES, config_entry.options.get(CONF_ENABLE_INDICES, False))
     config[CONF_ENABLE_MINUTELY] = config_entry.data.get(CONF_ENABLE_MINUTELY, config_entry.options.get(CONF_ENABLE_MINUTELY, False))
 
-    # 记录API功能开关状态，方便调试
-    _LOGGER.debug(f"API功能开关状态: 小时天气={config[CONF_ENABLE_HOURLY]}, 预警={config[CONF_ENABLE_WARNING]}, 空气质量={config[CONF_ENABLE_AIR]}, 昨日天气={config[CONF_ENABLE_YESTERDAY]}, 天气指数={config[CONF_ENABLE_INDICES]}, 分钟预警={config[CONF_ENABLE_MINUTELY]}")
-    
     # 如果是城市搜索模式，将城市名称添加到配置中
     if location_mode == "城市搜索":
         config["城市搜索"] = config_entry.data.get("城市搜索")
@@ -222,14 +220,15 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     
     # 注册定时更新并保存回调对象，以便卸载时取消
     update_listener = async_track_time_interval(hass, custom_update, timedelta(minutes=update_interval_minutes))
-    _LOGGER.debug('[%s]刷新间隔时间: %s 分钟，夜间不更新: %s', name, update_interval_minutes, no_update_at_night)
+    _LOGGER.info('[%s]刷新间隔时间: %s 分钟，夜间不更新: %s', name, update_interval_minutes, no_update_at_night)
     
     # 保存定时任务回调到hass.data，供卸载时使用
     hass.data[DOMAIN][unique_id]['update_listener'] = update_listener
     
     if data._current:  # 检查是否有有效数据
         async_add_entities([HeFengWeather(data, unique_id, name)], True)
-        _LOGGER.info(f"成功添加天气实体: {name}")
+        _LOGGER.info(f"[{name}]成功添加天气实体")
+        _LOGGER.info("*************************************************")
     else:
         _LOGGER.error("未能获取有效天气数据，无法创建实体")
 
@@ -698,7 +697,7 @@ class WeatherData(object):
         self.indices_url = f"https://{self._host}/v7/indices/1d?type=0&location={self._location}&lang=zh"
         self.yesterday_url = None  # 将在获取到LocationID后动态设置
         self.minutely_url = f"https://{self._host}/v7/minutely/5m?location={self._location}&lang=zh"
-        _LOGGER.debug(f"API URL 已更新为位置: {self._location}") 
+
     @property
     def name(self):
         """Return the name of the sensor."""
@@ -760,7 +759,6 @@ class WeatherData(object):
                 "o3": str(int(pollutants.get('o3', 0)))
             }
             
-            _LOGGER.debug(f"空气质量数据转换完成: {old_format}")
             return old_format
             
         except Exception as e:
@@ -878,7 +876,6 @@ class WeatherData(object):
             
     async def async_update(self, now, force_update=False):
         """获取天气数据"""
-        _LOGGER.info("获取天气数据")
         # 如果是设备模式，每次更新时重新获取设备的经纬度并更新 API URL 
         if self._zone_or_device:
             entity_state = self.hass.states.get(self._zone_or_device)
@@ -888,8 +885,7 @@ class WeatherData(object):
                 if longitude is not None and latitude is not None:
                     old_location = self._location
                     self._location = f"{longitude},{latitude}"
-                    _LOGGER.debug(f"更新设备位置: 从 {old_location} 更新为 {self._location}")
-                    
+
                     # 更新所有 API URL
                     self._update_api_urls()
                     
@@ -932,7 +928,6 @@ class WeatherData(object):
                                         _LOGGER.debug(f"城市位置未变化: {self._location}")
                 except Exception as e:
                     _LOGGER.error(f"获取城市经纬度异常: {str(e)}")
-        _LOGGER.debug(f"设置HTTP连接参数")
         # 设置HTTP连接参数
         timeout = aiohttp.ClientTimeout(total=10)
         connector = aiohttp.TCPConnector(limit=80, force_close=True)
@@ -964,7 +959,7 @@ class WeatherData(object):
         async def fetch_data(url, update_attr, data_attr, min_interval, json_key=None, force_update=False):
             last_update = getattr(self, update_attr, 0) or 0
             # 检查是否需要更新，如果是强制更新则跳过时间间隔检查
-            _LOGGER.debug(f"上次更新时间: {last_update}, 当前时间: {current_time}, 最小间隔: {min_interval}")
+            
             if not force_update and current_time - last_update < min_interval:
                 _LOGGER.debug(f"跳过更新 {data_attr}：时间间隔不足 ({current_time - last_update} < {min_interval})")
                 return False
@@ -985,9 +980,9 @@ class WeatherData(object):
                     
                     # 处理预警API的无数据情况
                     if url == self.warning_url and json_data.get('metadata', {}).get('zeroResult', False):
-                        _LOGGER.debug("预警API返回无数据，设置为空列表")
                         setattr(self, data_attr, None)
                         setattr(self, update_attr, current_time)
+                        _LOGGER.info(f"成功访问API: {url}")
                         return True
                     
                     if json_key:
@@ -1028,29 +1023,22 @@ class WeatherData(object):
             tasks.append(fetch_data(self.geo_url, '_updatetime_geo', '_geo_data', min_intervals['geo'], 'geo', force_update))
             
             # 根据配置决定是否调用各个API
-            _LOGGER.debug(f"API功能调用前状态: 小时天气={self._enable_hourly}, 预警={self._enable_warning}, 空气质量={self._enable_air}, 昨日天气={self._enable_yesterday}, 天气指数={self._enable_indices}, 分钟预警={self._enable_minutely}")
+            _LOGGER.debug(f"API功能启用状态: 小时天气={self._enable_hourly}, 预警={self._enable_warning}, 空气质量={self._enable_air}, 昨日天气={self._enable_yesterday}, 天气指数={self._enable_indices}, 分钟预警={self._enable_minutely}")
 
             if self._enable_air:
-                _LOGGER.debug(f"添加空气质量API任务: {self.air_url}")
                 tasks.append(fetch_data(self.air_url, '_updatetime_air', '_air_data', min_intervals['air'], None, force_update))
             if self._enable_hourly:
-                _LOGGER.debug(f"添加小时天气API任务: {self.hourly_url}")
                 tasks.append(fetch_data(self.hourly_url, '_updatetime_hourly', '_hourly_data', min_intervals['hourly'], 'hourly', force_update))
             if self._enable_minutely:
-                _LOGGER.debug(f"添加分钟预警API任务: {self.minutely_url}")
                 tasks.append(fetch_data(self.minutely_url, '_updatetime_minutely', '_minutely_data', min_intervals['minutely'], None, force_update))
             if self._enable_warning:
-                _LOGGER.debug(f"添加预警API任务: {self.warning_url}")
                 tasks.append(fetch_data(self.warning_url, '_updatetime_warning', '_warning_data', min_intervals['warning'], None, force_update))
-
             if self._enable_indices:
-                _LOGGER.debug(f"添加天气指数API任务: {self.indices_url}")
                 tasks.append(fetch_data(self.indices_url, '_updatetime_indices', '_air_indices', min_intervals['indices'], 'daily', force_update))
           
             
             # 执行所有任务（除了昨日天气）- 使用 return_exceptions=True 防止单个失败影响整体
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            _LOGGER.debug("API更新结果: %s", results)
             
             # 检查结果中的异常并记录
             for i, result in enumerate(results):
@@ -1083,11 +1071,9 @@ class WeatherData(object):
                     yesterday = datetime.now() - timedelta(days=1)
                     self._yesterday = yesterday.strftime("%Y-%m-%d")  # 用于比较的格式
                     self._yesterday_api = yesterday.strftime("%Y%m%d")  # API使用的格式
-                    _LOGGER.debug(f"计算昨日日期: {self._yesterday} (API格式: {self._yesterday_api})")
                     
                     # 使用YYYYMMDD格式供API使用
                     self.yesterday_url = f"https://{self._host}/v7/historical/weather?location={self._location_id}&date={self._yesterday_api}"
-                    _LOGGER.debug(f"设置昨日天气API URL: {self.yesterday_url}")
                     
                     # 昨日天气API总是强制更新，因为日期每天都在变化
                     await fetch_data(self.yesterday_url, '_updatetime_yesterday', '_yesterday_data', min_intervals['yesterday'], None, force_update=True) 
@@ -1181,16 +1167,13 @@ class WeatherData(object):
         yesterday_inserted = False
         if self._enable_yesterday:
             # 添加调试日志
-            _LOGGER.debug(f"昨日天气处理: 昨日日期={self._yesterday}, 昨日数据存在={bool(self._yesterday_data)}")
-            
+
             if self._yesterday_data and isinstance(self._yesterday_data, dict) and 'weatherDaily' in self._yesterday_data:
                 yesterday_weather = self._yesterday_data['weatherDaily']
                 yesterday_date = self._yesterday  # 使用计算的昨日日期 YYYY-MM-DD 格式
                 
                 # 检查昨日日期是否在每日数组内
                 has_yesterday = any(daily.get("fxDate", "") == yesterday_date for daily in daily_list)
-                
-                _LOGGER.debug(f"昨日数据检查: 昨日是否在daily_list中={has_yesterday}")
                 
                 # 只有在昨日日期不在每日数组内时才插入
                 if not has_yesterday:
@@ -1237,7 +1220,6 @@ class WeatherData(object):
                     }
                     daily_list.insert(0, yesterday_forecast)
                     yesterday_inserted = True
-                    _LOGGER.info(f"成功插入昨日天气数据: {yesterday_date}")
                 else:
                     _LOGGER.info(f"昨日数据已存在于每日预报中，无需插入: {yesterday_date}")
         else:
@@ -1468,6 +1450,6 @@ class WeatherData(object):
         if self._responsecode == '402':
             _LOGGER.warning("API请求超过访问次数")
         elif self._responsecode == '200':
-            _LOGGER.info("成功从API获取本地信息")
+            _LOGGER.info("")
         else:
             _LOGGER.warning("请求API错误，未取得数据，可能是API不支持相关类型，尝试关闭格点天气试试。")
