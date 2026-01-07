@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 5.1   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 5.2   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1987,9 +1987,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         <div class="update-time" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             ${this._getRelativeTime(update_time)}  
-              <button style="margin-left: 1vw; color: #04d2f6ff; background: none; border: none; cursor: pointer; font-size: 2vw; font-weight: bold;" 
-                @click="${() => this._refresh_weather()}">↺
-              </button>
+            <button style="margin-left: 0.3vw; color: #04d2f6ff; background: none; border: none; cursor: pointer; font-size: 2.5vw; height: 2.5vw; font-weight: bold; padding: 0;" 
+              @click="${() => this._refresh_weather()}">↺
+            </button>
           </div>
           
           <!-- 日出日落信息 - 放在右侧 -->
