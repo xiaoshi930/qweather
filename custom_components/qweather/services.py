@@ -26,7 +26,7 @@ async def async_setup_services(hass: HomeAssistant):
             _LOGGER.error("未提供entity_id，无法执行更新")
             return
 
-        _LOGGER.info(f"收到更新天气服务调用: {entity_id}")
+        _LOGGER.info(f"收到更新天气服务调用: {entity_id}#####################")
 
         # 检查是否是QWeather域的天气实体
         if not entity_id.startswith("weather."):
@@ -75,7 +75,6 @@ async def async_setup_services(hass: HomeAssistant):
 
             # 检查是否有 _data 对象
             if not hasattr(weather_entity, '_data'):
-                _LOGGER.error(f"天气实体 {entity_id} 没有 _data 属性")
                 return
 
             # 导入dt_util以获取当前时间
@@ -115,6 +114,7 @@ async def async_setup_services(hass: HomeAssistant):
             weather_entity.async_write_ha_state()
 
             _LOGGER.info(f"成功更新实体: {entity_id}")
+            _LOGGER.info("*************************************************")
         except Exception as e:
             _LOGGER.error(f"更新实体 {entity_id} 失败: {e}", exc_info=True)
 
