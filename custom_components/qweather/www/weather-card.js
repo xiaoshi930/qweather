@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 5.2   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 天气卡片 \n%c   v 5.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -3807,6 +3807,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       --ha-card-background: rgb(0,0,0,0);
       --ha-card-border-width: 0; 
       --dialog-backdrop-filter: blur(10px) brightness(1);
+      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);
       --popup-min-width: 90vw;
     `;
     if (window.browser_mod) {
@@ -3882,6 +3883,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       --ha-card-background: rgb(0,0,0,0);
       --ha-card-border-width: 0; 
       --dialog-backdrop-filter: blur(10px) brightness(1);
+      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);
       --popup-min-width: 90vw;
     `;
     
@@ -3929,6 +3931,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       --ha-card-background: rgb(0,0,0,0);
       --ha-card-border-width: 0; 
       --dialog-backdrop-filter: blur(10px) brightness(1);
+      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);
       --popup-min-width: 90vw;
     `;
     
@@ -3976,6 +3979,7 @@ class XiaoshiWeatherPadCard extends LitElement {
       --ha-card-background: rgb(0,0,0,0);
       --ha-card-border-width: 0; 
       --dialog-backdrop-filter: blur(10px) brightness(1);
+      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);
       --popup-min-width: 90vw;
     `;
     
