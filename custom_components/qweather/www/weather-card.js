@@ -1,4 +1,4 @@
-console.info("%c 天气卡片 \n%c   v 5.3   ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 5.4 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1083,6 +1083,16 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+  
   connectedCallback() {
     super.connectedCallback();
     this._updateEntities();
@@ -1201,6 +1211,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _toggleForecastMode() {
+    this._handleClick();
     // 检查是否有分钟天气数据
     const enableMinutelyForecast = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     
@@ -1236,6 +1247,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _toggleWarningDetails() {
+    this._handleClick();
     if (this.showWarningDetails ) {
       // 如果当前显示，则隐藏并清除定时器
       this._hideWarningDetails();
@@ -1267,6 +1279,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _toggleApiInfo() {
+    this._handleClick();
     if (this.showApiInfo ) {
       // 如果当前显示，则隐藏并清除定时器
       this._hideApiDetails();
@@ -1297,6 +1310,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _toggleIndicesDetails() {
+    this._handleClick();
     if (this.showIndicesDetails ) {
       // 如果当前显示，则隐藏并清除定时器
       this._hideIndicesDetails();
@@ -2831,6 +2845,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
 
   _refresh_weather() {
+    this._handleClick();
     if (!this.config?.entity) return;
 
     this.hass.callService('qweather', 'update_weather', {
@@ -3712,6 +3727,16 @@ class XiaoshiWeatherPadCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this._updateEntities();
@@ -3801,6 +3826,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   _toggleHourlyModal() {
+    this._handleClick();
     // 使用 browser_mod 弹出独立的小时天气卡片
     const popupStyle = this.config.popup_style || `
       --mdc-theme-surface: rgb(0,0,0,0); 
@@ -3877,6 +3903,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   _toggleWarningModal() {
+    this._handleClick();
     // 使用 browser_mod 弹出独立的预警信息卡片
     const popupStyle = this.config.popup_style || `
       --mdc-theme-surface: rgb(0,0,0,0); 
@@ -3925,6 +3952,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   }
 
   _toggleApiInfo() {
+    this._handleClick();
     // 使用 browser_mod 弹出独立的预警信息卡片
     const popupStyle = this.config.popup_style || `
       --mdc-theme-surface: rgb(0,0,0,0); 
@@ -3974,6 +4002,7 @@ class XiaoshiWeatherPadCard extends LitElement {
   
   _toggleIndicesDetails() {
     // 使用 browser_mod 弹出独立的预警信息卡片
+    this._handleClick();
     const popupStyle = this.config.popup_style || `
       --mdc-theme-surface: rgb(0,0,0,0); 
       --ha-card-background: rgb(0,0,0,0);
@@ -5442,6 +5471,16 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
   connectedCallback() {
     super.connectedCallback();
     // 处理通过属性传递的数据
@@ -5729,6 +5768,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
   }
 
   _toggleHourlyClose() {
+    this._handleClick();
     // 关闭小时天气弹窗
     if (window.browser_mod) {
       window.browser_mod.service('close_popup');
@@ -5738,7 +5778,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       if (modal) {
         modal.remove();
       }
-    }
+    } 
   }
 
   render() {
@@ -6702,6 +6742,16 @@ class XiaoshiWarningWeatherCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
   connectedCallback() {
     super.connectedCallback();
     // 处理通过属性传递的数据
@@ -6772,6 +6822,7 @@ class XiaoshiWarningWeatherCard extends LitElement {
   }
 
   _toggleWarningClose() {
+    this._handleClick();
     // 关闭小时天气弹窗
     if (window.browser_mod) {
       window.browser_mod.service('close_popup');
@@ -7097,6 +7148,16 @@ class XiaoshiAqiWeatherCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
   connectedCallback() {
     super.connectedCallback();
     // 处理通过属性传递的数据
@@ -7154,6 +7215,7 @@ class XiaoshiAqiWeatherCard extends LitElement {
   }
 
   _toggleAqiClose() {
+    this._handleClick();
     // 关闭小时天气弹窗
     if (window.browser_mod) {
       window.browser_mod.service('close_popup');
@@ -7393,6 +7455,16 @@ class XiaoshiIndicesWeatherCard extends LitElement {
     }
   }
 
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
   connectedCallback() {
     super.connectedCallback();
     // 处理通过属性传递的数据
@@ -7438,6 +7510,7 @@ class XiaoshiIndicesWeatherCard extends LitElement {
   }
 
   _toggleIndicesClose() {
+    this._handleClick();
     // 关闭小时天气弹窗
     if (window.browser_mod) {
       window.browser_mod.service('close_popup');
