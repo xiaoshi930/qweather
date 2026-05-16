@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 5.6 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 5.7 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -3864,17 +3864,19 @@ class XiaoshiWeatherPadCard extends LitElement {
   _toggleHourlyModal() {
     this._handleClick();
     // 使用 browser_mod 弹出独立的小时天气卡片
+    const theme = this._evaluateTheme();
+    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
     const popupStyle = this.config.popup_style || `
       --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
       --dialog-box-shadow: none;                                     /* 新-取消阴影 */
       --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: rgb(100,100,100,0.2);                /* 新-设置遮罩背景色 */
+      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
       --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
 
       --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
       --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
       --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface: rgb(150,150,150,0.5);                     /* 旧-设置遮罩背景色 */
+      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
       --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
     `;
     if (window.browser_mod) {
@@ -3946,17 +3948,19 @@ class XiaoshiWeatherPadCard extends LitElement {
   _toggleWarningModal() {
     this._handleClick();
     // 使用 browser_mod 弹出独立的预警信息卡片
+    const theme = this._evaluateTheme();
+    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
     const popupStyle = this.config.popup_style || `
       --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
       --dialog-box-shadow: none;                                     /* 新-取消阴影 */
       --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: rgb(100,100,100,0.2);                /* 新-设置遮罩背景色 */
+      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
       --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
 
       --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
       --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
       --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface: rgb(150,150,150,0.5);                     /* 旧-设置遮罩背景色 */
+      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
       --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
     `;
     
@@ -4000,17 +4004,19 @@ class XiaoshiWeatherPadCard extends LitElement {
   _toggleApiInfo() {
     this._handleClick();
     // 使用 browser_mod 弹出独立的预警信息卡片
+    const theme = this._evaluateTheme();
+    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
     const popupStyle = this.config.popup_style || `
       --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
       --dialog-box-shadow: none;                                     /* 新-取消阴影 */
       --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: rgb(100,100,100,0.2);                /* 新-设置遮罩背景色 */
+      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
       --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
 
       --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
       --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
       --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface: rgb(150,150,150,0.5);                     /* 旧-设置遮罩背景色 */
+      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
       --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
     `;
     
@@ -4054,17 +4060,19 @@ class XiaoshiWeatherPadCard extends LitElement {
   _toggleIndicesDetails() {
     // 使用 browser_mod 弹出独立的预警信息卡片
     this._handleClick();
+    const theme = this._evaluateTheme();
+    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
     const popupStyle = this.config.popup_style || `
       --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
       --dialog-box-shadow: none;                                     /* 新-取消阴影 */
       --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: rgb(100,100,100,0.2);                /* 新-设置遮罩背景色 */
+      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
       --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
 
       --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
       --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
       --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface: rgb(150,150,150,0.5);                     /* 旧-设置遮罩背景色 */
+      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
       --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
     `;
     
