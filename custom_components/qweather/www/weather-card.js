@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 5.7 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 5.8 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -814,7 +814,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
       .dot-mode .temp-curve-low .temp-text {
         color: rgba(3, 169, 243);
-        top: 0vw;
+        top: 1vw;
       }
       .dot-mode .temp-curve-hourly .temp-text {
         color: rgba(193, 65, 215, 1);
@@ -3686,7 +3686,7 @@ class XiaoshiWeatherPadCard extends LitElement {
 
       .dot-mode .temp-curve-low .temp-text {
         color: rgba(3, 169, 243);
-        top: 2px;
+        top: 6px;
       }
 
       /*预警图标和文字样式*/
