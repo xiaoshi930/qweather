@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 5.8 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 5.9 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1824,6 +1824,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (level == "橙色") return "rgb(255,100,0)";
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
+    if (level == "灰色") {
+      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+    }
     
     return "#FFA726"; // 默认颜色
   }
@@ -1832,7 +1835,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
     
     let level = "";
-    const priority = ["红色", "橙色", "黄色", "蓝色"];
+    const priority = ["红色", "橙色", "黄色", "蓝色","灰色"];
     
     for (let i = 0; i < warning.length; i++) {
       const currentLevel = warning[i].level;
@@ -1845,6 +1848,9 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (level == "橙色") return "rgb(255,100,0)";
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
+    if (level == "灰色") {
+      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+    }
     
     return "#FFA726"; // 默认颜色
   }
@@ -3272,6 +3278,25 @@ class XiaoshiWeatherPadCard extends LitElement {
     };
   }
 
+  constructor() {
+    super();
+    this.isDragging = false;
+    this.startX = 0;
+    this.scrollLeft = 0;
+    this.scrollTarget = null;
+    this.rafId = null;
+    this.startX = 0;
+    // 弹窗 hass 状态订阅
+    this._popupHassUnsubscribe = null;
+    this._popupUpdatePending = false;
+    this._popupHass = null;
+    // 弹窗 DOM 引用
+    this._popupOverlay = null;
+    this._popupElement = null;
+    this._popupCardElement = null;
+    this._popupEscHandler = null;
+  }
+
   static get styles() {
     return css`
       :host {
@@ -3720,15 +3745,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     `;
   }
 
-  constructor() {
-    super();
-    this.isDragging = false;
-    this.startX = 0;
-    this.scrollLeft = 0;
-    this.scrollTarget = null;
-    this.rafId = null;
-    this.startX = 0;
-  }
+
   
   _evaluateTheme() {
     try {
@@ -3776,6 +3793,11 @@ class XiaoshiWeatherPadCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._updateEntities();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._closePopup();
   }
 
   updated(changedProperties) {
@@ -3861,62 +3883,177 @@ class XiaoshiWeatherPadCard extends LitElement {
     return this.entity.attributes.daily_forecast.slice(0, columns);
   }
 
-  _toggleHourlyModal() {
-    this._handleClick();
-    // 使用 browser_mod 弹出独立的小时天气卡片
-    const theme = this._evaluateTheme();
-    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
-    const popupStyle = this.config.popup_style || `
-      --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
-      --dialog-box-shadow: none;                                     /* 新-取消阴影 */
-      --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
-      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
-
-      --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
-      --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
-      --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
-      --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
+  // ==========================================
+  // 原生弹窗基础设施
+  // ==========================================
+  _injectPopupStyles() {
+    if (XiaoshiWeatherPadCard._popupStylesInjected) return;
+    XiaoshiWeatherPadCard._popupStylesInjected = true;
+    const style = document.createElement('style');
+    style.id = 'xiaoshi-weather-popup-style';
+    style.textContent = `
+      @keyframes xiaoshiWeatherPopupIn {
+        from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+        to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
     `;
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme:  this._evaluateTheme(),
-        visual_style: this.config.visual_style,
-        popup_style: this.config.popup_style,
-        use_custom_entities: this.config.use_custom_entities,
-        temperature_entity: this.config.temperature_entity,
-        humidity_entity: this.config.humidity_entity
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-hourly-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-hourly-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
+    document.head.appendChild(style);
+  }
+
+  _showPopup(cardTagName, configData) {
+    this._handleClick();
+    this._injectPopupStyles();
+
+    // 获取 hass 对象
+    const haRoot = document.querySelector('home-assistant');
+    const hassObj = haRoot?.hass || haRoot?.shadowRoot?.querySelector('home-assistant-main')?.hass;
+    if (!hassObj) {
+      console.error('[XiaoshiWeatherPadCard] 无法获取 hass 对象');
+      return;
+    }
+
+    // 已有弹窗则先关闭
+    if (this._popupOverlay) {
+      this._closePopup();
+    }
+
+    // 创建遮罩层
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+    `;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this._closePopup();
+    });
+
+    // 创建弹窗容器
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1005;
+      background: transparent;
+      padding: 0;
+      max-width: 100vw;
+      max-height: 100vh;
+      overflow: hidden;
+      box-sizing: border-box;
+      animation: xiaoshiWeatherPopupIn 0.2s ease-out;
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+
+    this._popupOverlay = overlay;
+    this._popupElement = popup;
+
+    // 创建卡片
+    this._createPopupCard(popup, cardTagName, hassObj, configData);
+
+    // ESC 关闭
+    this._popupEscHandler = (e) => {
+      if (e.key === 'Escape') this._closePopup();
+    };
+    window.addEventListener('keydown', this._popupEscHandler);
+  }
+
+  _createPopupCard(container, cardTagName, hassObj, configData) {
+    try {
+      const cardElement = document.createElement(cardTagName);
+      cardElement.hass = hassObj;
+      if (configData && typeof configData === 'object') {
+        cardElement.config = configData;
+      }
+      // 包裹在 ha-card 中
+      const haCard = document.createElement('ha-card');
+      haCard.appendChild(cardElement);
+      container.appendChild(haCard);
+      this._popupCardElement = cardElement;
+      // 启动 hass 状态订阅
+      this._startPopupHassWatcher(hassObj);
+    } catch (err) {
+      console.error('[XiaoshiWeatherPadCard] 创建弹窗卡片失败:', err);
+      container.innerHTML = `<div style="color:red;padding:20px;">加载失败: ${err.message}</div>`;
+    }
+  }
+
+  _closePopup() {
+    if (this._popupOverlay) {
+      this._popupOverlay.remove();
+      this._popupOverlay = null;
+    }
+    if (this._popupElement) {
+      this._popupElement.remove();
+      this._popupElement = null;
+    }
+    this._popupCardElement = null;
+    if (this._popupEscHandler) {
+      window.removeEventListener('keydown', this._popupEscHandler);
+      this._popupEscHandler = null;
+    }
+    // 取消 hass 状态订阅
+    if (this._popupHassUnsubscribe) {
+      this._popupHassUnsubscribe();
+      this._popupHassUnsubscribe = null;
+    }
+    this._popupUpdatePending = false;
+    this._popupHass = null;
+  }
+
+  // 1. 订阅 hass 状态变化
+  _startPopupHassWatcher(hassObj) {
+    if (this._popupHassUnsubscribe) return;
+    this._popupHass = hassObj;
+    if (!hassObj || !hassObj.connection) {
+      setTimeout(() => this._startPopupHassWatcher(hassObj), 500);
+      return;
+    }
+    try {
+      hassObj.connection.subscribeMessage(
+        () => {
+          if (!this._popupCardElement) return;
+          this._schedulePopupUpdate();
+        },
+        { type: 'subscribe_events', event_type: 'state_changed' }
+      ).then((unsub) => {
+        this._popupHassUnsubscribe = unsub;
       });
-    } else {
-      console.warn('browser_mod not available, cannot show hourly weather popup');
+    } catch (err) {
+      console.error('[XiaoshiWeatherPadCard] 订阅状态变化失败:', err);
+    }
+  }
+
+  // 2. RAF 批处理调度，每帧最多触发一次更新
+  _schedulePopupUpdate() {
+    if (this._popupUpdatePending) return;
+    this._popupUpdatePending = true;
+    requestAnimationFrame(() => {
+      this._popupUpdatePending = false;
+      if (!this._popupCardElement) return;
+      const haRoot = document.querySelector('home-assistant');
+      const newHass = haRoot?.hass || haRoot?.shadowRoot?.querySelector('home-assistant-main')?.hass;
+      if (!newHass) return;
+      if (newHass === this._popupHass) return;
+      this._popupHass = newHass;
+      this._updatePopupCard();
+    });
+  }
+
+  // 3. 更新弹窗卡片
+  _updatePopupCard() {
+    if (this._popupCardElement && this._popupHass) {
+      try {
+        this._popupCardElement.hass = this._popupHass;
+      } catch (err) {
+        console.warn('[XiaoshiWeatherPadCard] 弹窗卡片更新失败:', err.message);
+      }
     }
   }
 
@@ -3925,6 +4062,9 @@ class XiaoshiWeatherPadCard extends LitElement {
     if (level == "橙色") return "rgb(255,100,0)";
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
+    if (level == "灰色") {
+      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+    }
     
     return "#FFA726"; // 默认颜色
   }
@@ -3933,7 +4073,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
     
     let level = "";
-    const priority = ["红色", "橙色", "黄色", "蓝色"];
+    const priority = ["红色", "橙色", "黄色", "蓝色", "灰色"];
     
     for (let i = 0; i < warning.length; i++) {
       const currentLevel = warning[i].level;
@@ -3945,172 +4085,44 @@ class XiaoshiWeatherPadCard extends LitElement {
     return this._getWarningColorForLevel(level);
   }
 
-  _toggleWarningModal() {
-    this._handleClick();
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    const theme = this._evaluateTheme();
-    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
-    const popupStyle = this.config.popup_style || `
-      --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
-      --dialog-box-shadow: none;                                     /* 新-取消阴影 */
-      --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
-      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
+  _toggleHourlyModal() {
+    const configData = {
+      entity: this.config.entity,
+      theme: this._evaluateTheme(),
+      visual_style: this.config.visual_style,
+      popup_style: this.config.popup_style,
+      use_custom_entities: this.config.use_custom_entities,
+      temperature_entity: this.config.temperature_entity,
+      humidity_entity: this.config.humidity_entity
+    };
+    this._showPopup('xiaoshi-hourly-weather-card', configData);
+  }
 
-      --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
-      --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
-      --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
-      --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-warning-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-warning-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+  _toggleWarningModal() {
+    const configData = {
+      entity: this.config.entity,
+      theme: this._evaluateTheme(),
+      popup_style: this.config.popup_style
+    };
+    this._showPopup('xiaoshi-warning-weather-card', configData);
   }
 
   _toggleApiInfo() {
-    this._handleClick();
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    const theme = this._evaluateTheme();
-    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
-    const popupStyle = this.config.popup_style || `
-      --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
-      --dialog-box-shadow: none;                                     /* 新-取消阴影 */
-      --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
-      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
-
-      --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
-      --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
-      --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
-      --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-aqi-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-aqi-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+    const configData = {
+      entity: this.config.entity,
+      theme: this._evaluateTheme(),
+      popup_style: this.config.popup_style
+    };
+    this._showPopup('xiaoshi-aqi-weather-card', configData);
   }
   
   _toggleIndicesDetails() {
-    // 使用 browser_mod 弹出独立的预警信息卡片
-    this._handleClick();
-    const theme = this._evaluateTheme();
-    const scrimColor = theme === 'on' ? 'rgba(50, 50, 50, 0.3)' : 'rgba(200, 200, 200, 0.3)';
-    const popupStyle = this.config.popup_style || `
-      --ha-dialog-width-md: 90vw;                                    /* 新-卡片宽度 */
-      --dialog-box-shadow: none;                                     /* 新-取消阴影 */
-      --card-background-color: rgb(0,0,0,0);                         /* 新-取消卡片背景色 */
-      --mdc-dialog-scrim-color: ${scrimColor};                       /* 新-设置遮罩背景色 */
-      --ha-dialog-scrim-backdrop-filter: blur(10px) brightness(1);   /* 新-设置遮罩模糊度 */
-
-      --popup-min-width: 90vw;                                       /* 旧-卡片宽度 */
-      --ha-card-border-width: 0;                                     /* 旧-取消卡片边框 */
-      --ha-card-background: rgb(0,0,0,0);                            /* 旧-取消卡片背景色 */
-      --mdc-theme-surface:  ${scrimColor};                           /* 旧-设置遮罩背景色 */
-      --dialog-backdrop-filter: blur(10px) brightness(1);            /* 旧-设置遮罩模糊度 */
-    `;
-    
-    if (window.browser_mod) {
-      const hassData = {
-        states: this.hass.states,
-        user: this.hass.user,
-        theme: this.hass.theme,
-        language: this.hass.language,
-        resources: this.hass.resources,
-        locale: this.hass.locale,
-        entity_id: this.hass.entity_id,
-        config: this.hass.config,
-        services: this.hass.services
-      };
-      
-      const configData = {
-        entity: this.config.entity,
-        theme: this._evaluateTheme(),
-        popup_style: this.config.popup_style
-      };
-      
-      const popupContent = `
-        <ha-card>
-            <xiaoshi-indices-weather-card 
-              hass-hass="${encodeURIComponent(JSON.stringify(hassData))}"
-              hass-config="${encodeURIComponent(JSON.stringify(configData))}"
-            ></xiaoshi-indices-weather-card>
-        </ha-card>
-      `;
-      
-      window.browser_mod.service('popup', { 
-        style: popupStyle,
-        content: popupContent
-      });
-    } else {
-      console.warn('browser_mod not available, cannot show warning popup');
-    }
+    const configData = {
+      entity: this.config.entity,
+      theme: this._evaluateTheme(),
+      popup_style: this.config.popup_style
+    };
+    this._showPopup('xiaoshi-indices-weather-card', configData);
   }
 
   _getAqiCategoryHtml() {
@@ -5026,6 +5038,8 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
       /*主卡片样式*/
       .weather-card {
+        width: 80vw;
+        max-height: 80vh;
         position: relative;
         border-radius: 15px;
         padding: 8px;
@@ -5431,28 +5445,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
         font-size: 15px;
       }
 
-      .hourly-close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: rgba(255, 100, 0);
-        margin-right: 10px;
-        padding: 5px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-      }
-
-      .hourly-close-btn:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(255, 0, 0);
-      }
-
       .hourly-modal-body {
         padding: 5px 2px;
         overflow: hidden;
@@ -5831,20 +5823,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     }));
   }
 
-  _toggleHourlyClose() {
-    this._handleClick();
-    // 关闭小时天气弹窗
-    if (window.browser_mod) {
-      window.browser_mod.service('close_popup');
-    } else {
-      // 如果没有 browser_mod，尝试查找并关闭弹窗
-      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
-      if (modal) {
-        modal.remove();
-      }
-    } 
-  }
-
   render() {
     const hourlyForecast = this._getHourlyForecast();
     if (!hourlyForecast || hourlyForecast.length === 0) {
@@ -5856,7 +5834,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
           <div class="hourly-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
             <div class="hourly-modal-header">
               <h3 style="color: ${textColor};">24小时天气预报</h3>
-              <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
             </div>
             <div class="hourly-modal-body">
               <p style="color: ${textColor};">暂无小时天气数据</p>
@@ -5897,7 +5874,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
             <h3 style="color: ${fgColor};">
              ${hasminutely ? "详细天气: "+summary: "24小时天气预报"}
             </h3>
-            <button class="hourly-close-btn" @click="${() => this._toggleHourlyClose()}">×</button>
           </div>
           <div class="hourly-modal-body">
             <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
@@ -6359,10 +6335,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     });
   }
 
-  _handleClose() {
-    this.dispatchEvent(new CustomEvent('close'));
-  }
-
   firstUpdated() {
     this._drawTempCurve();
   }
@@ -6676,28 +6648,31 @@ class XiaoshiWarningWeatherCard extends LitElement {
         display: block;
       }
 
-      .close-btn:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(255, 0, 0);
-      }
-
       /*预警弹窗样式*/
       .warning-modal-content {
         border-radius: 12px;
         max-height: 80vh;
-        overflow-y: auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
         margin: 0 auto;
         color: white;
+        width: 80vw;
       }
 
       .warning-modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-left: 25px;
-        margin-right: 0px;
+        margin: 0;
+        padding: 0 25px;
         height: 60px;
         font-size: 20px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: inherit;
       }
 
       .warning-modal-header h3 {
@@ -6706,26 +6681,10 @@ class XiaoshiWarningWeatherCard extends LitElement {
         font-size: 20px;
       }
 
-      .warning-close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: rgba(255, 100, 0);
-        margin-right: 10px;
-        padding: 5px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-      }
-
-      .warning-close-btn:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(255, 0, 0);
+      .warning-modal-body {
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
       }
 
       .warning-item {
@@ -6865,6 +6824,9 @@ class XiaoshiWarningWeatherCard extends LitElement {
     if (level == "橙色") return "rgb(255,100,0)";
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
+    if (level == "灰色") {
+      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+    }
     
     return "#FFA726"; // 默认颜色
   }
@@ -6873,7 +6835,7 @@ class XiaoshiWarningWeatherCard extends LitElement {
     if (!warning || warning.length === 0) return "#FFA726"; // 默认颜色
     
     let level = "";
-    const priority = ["红色", "橙色", "黄色", "蓝色"];
+    const priority = ["红色", "橙色", "黄色", "蓝色", "灰色"];
     
     for (let i = 0; i < warning.length; i++) {
       const currentLevel = warning[i].level;
@@ -6885,27 +6847,12 @@ class XiaoshiWarningWeatherCard extends LitElement {
     return this._getWarningColorForLevel(level);
   }
 
-  _toggleWarningClose() {
-    this._handleClick();
-    // 关闭小时天气弹窗
-    if (window.browser_mod) {
-      window.browser_mod.service('close_popup');
-    } else {
-      // 如果没有 browser_mod，尝试查找并关闭弹窗
-      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
-      if (modal) {
-        modal.remove();
-      }
-    }
-  }
-
   render() {
     if (!this.entity?.attributes?.warning || this.entity.attributes.warning.length === 0) {
       return html`
           <div class="warning-modal-content" >
             <div class="warning-modal-header">
               <h3>天气预警</h3>
-              <button class="warning-close-btn" @click="${() => this._toggleWarningClose()}">×</button>
             </div>
             <div class="warning-modal-body">
               <p>暂无预警信息</p>
@@ -6927,7 +6874,6 @@ class XiaoshiWarningWeatherCard extends LitElement {
         <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" >
           <div class="warning-modal-header">
             <h3 style="color: ${warningColor};">⚠ 天气预警 (${warning.length}条)</h3>
-            <button class="warning-close-btn" @click="${() => this._toggleWarningClose()}">×</button>
           </div>
           <div class="warning-modal-body">
             ${warning.map((warningItem, index) => {
@@ -7071,8 +7017,9 @@ class XiaoshiAqiWeatherCard extends LitElement {
       }
 
       .aqi-card {
-        border-radius: 12px;
+        width: 80vw;
         max-height: 80vh;
+        border-radius: 12px;
         overflow-y: auto;
         margin: 0 auto;
         color: white;
@@ -7101,28 +7048,6 @@ class XiaoshiAqiWeatherCard extends LitElement {
         font-weight: bold;
         font-size: 20px;
       }    
-
-      .aqi-close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: rgba(255, 100, 0);
-        margin-right: 10px;
-        padding: 5px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-      }
-
-      .aqi-close-btn:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(255, 0, 0);
-      }
 
       /* AQI总览 */
       .aqi-overview {
@@ -7278,20 +7203,6 @@ class XiaoshiAqiWeatherCard extends LitElement {
     }
   }
 
-  _toggleAqiClose() {
-    this._handleClick();
-    // 关闭小时天气弹窗
-    if (window.browser_mod) {
-      window.browser_mod.service('close_popup');
-    } else {
-      // 如果没有 browser_mod，尝试查找并关闭弹窗
-      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
-      if (modal) {
-        modal.remove();
-      }
-    }
-  }
-
   render() {
     if (!this.hass || !this.config) return html``;
  
@@ -7325,7 +7236,6 @@ class XiaoshiAqiWeatherCard extends LitElement {
       <div class="aqi-card ${themeClass}">
           <div class="aqi-modal-header">
             <h3 style="color: ${textcolor};">空气质量数据</h3>
-            <button class="aqi-close-btn" @click="${() => this._toggleAqiClose()}">×</button>
           </div>
         <!-- AQI总览 -->
         <div class="aqi-overview">
@@ -7400,11 +7310,12 @@ class XiaoshiIndicesWeatherCard extends LitElement {
       }
 
       .indices-card {
+        width: 80vw;
+        max-height: 80vh;
         position: relative;
         font-family: sans-serif;
         overflow: hidden;
         border-radius: 12px;
-        max-height: 80vh;
         margin: 0 auto;
         color: white;
       }
@@ -7424,28 +7335,6 @@ class XiaoshiIndicesWeatherCard extends LitElement {
         font-weight: bold;
         font-size: 20px;
       }    
-
-      .indices-close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: rgba(255, 100, 0);
-        margin-right: 10px;
-        padding: 5px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-      }
-
-      .indices-close-btn:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(255, 0, 0);
-      }
 
       /* 指数网格 */
       .indices-grid {
@@ -7573,20 +7462,6 @@ class XiaoshiIndicesWeatherCard extends LitElement {
     }
   }
 
-  _toggleIndicesClose() {
-    this._handleClick();
-    // 关闭小时天气弹窗
-    if (window.browser_mod) {
-      window.browser_mod.service('close_popup');
-    } else {
-      // 如果没有 browser_mod，尝试查找并关闭弹窗
-      const modal = this.closest('.browser-mod-popup, .mdc-dialog, ha-dialog');
-      if (modal) {
-        modal.remove();
-      }
-    }
-  }
-
   render() {
     if (!this.hass || !this.config) return html``;
     
@@ -7609,7 +7484,6 @@ class XiaoshiIndicesWeatherCard extends LitElement {
       <div class="indices-card" style="background: ${backgroundColor};">
           <div class="indices-modal-header">
             <h3 style="color: ${textcolor};">天气指数数据</h3>
-            <button class="indices-close-btn" @click="${() => this._toggleIndicesClose()}">×</button>
           </div>
 
         <!-- 指数列表 -->
