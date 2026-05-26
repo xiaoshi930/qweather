@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 5.9 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 6.0 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1825,7 +1825,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
     if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
     }
     
     return "#FFA726"; // 默认颜色
@@ -3946,6 +3946,9 @@ class XiaoshiWeatherPadCard extends LitElement {
       overflow: hidden;
       box-sizing: border-box;
       animation: xiaoshiWeatherPopupIn 0.2s ease-out;
+      --ha-card-border-color: transparent;
+      --ha-card-border-width: 0;
+      --ha-card-border-radius: 20px;
     `;
 
     document.body.appendChild(overlay);
@@ -4062,9 +4065,7 @@ class XiaoshiWeatherPadCard extends LitElement {
     if (level == "橙色") return "rgb(255,100,0)";
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
-    if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
-    }
+    if (level == "灰色") return "rgb(220,220,220)";
     
     return "#FFA726"; // 默认颜色
   }
@@ -6825,7 +6826,7 @@ class XiaoshiWarningWeatherCard extends LitElement {
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
     if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
     }
     
     return "#FFA726"; // 默认颜色
@@ -7312,13 +7313,14 @@ class XiaoshiIndicesWeatherCard extends LitElement {
       .indices-card {
         width: 80vw;
         max-height: 80vh;
+        padding-bottom: 16px;
         position: relative;
         font-family: sans-serif;
         overflow: hidden;
         border-radius: 12px;
         margin: 0 auto;
         color: white;
-      }
+      } 
 
       .indices-modal-header {
         display: flex;
