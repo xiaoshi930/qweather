@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 6.0 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 6.1 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -1114,7 +1114,6 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -3775,7 +3774,6 @@ class XiaoshiWeatherPadCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -5523,7 +5521,6 @@ class XiaoshiHourlyWeatherCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -6761,7 +6758,6 @@ class XiaoshiWarningWeatherCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -7133,7 +7129,6 @@ class XiaoshiAqiWeatherCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -7405,7 +7400,6 @@ class XiaoshiIndicesWeatherCard extends LitElement {
       }
       return this.config.theme;
     } catch(e) {
-      console.error('计算主题时出错:', e);
       return 'on';
     }
   }
@@ -7520,8 +7514,1082 @@ class XiaoshiIndicesWeatherCard extends LitElement {
 }
 customElements.define('xiaoshi-indices-weather-card', XiaoshiIndicesWeatherCard);
 
+class XiaoshiWeatherPhoneButtonEditor extends LitElement {
+  static get properties() {
+    return {
+      hass: { type: Object },
+      config: { type: Object },
+      _searchTerm: { type: String },
+      _filteredEntities: { type: Array },
+      _showEntityList: { type: Boolean }
+    };
+  }
+
+  static get styles() {
+    return css`
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 500px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      label {
+        font-weight: bold;
+      }
+      select, input, textarea {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      .entity-selector {
+        position: relative;
+      }
+
+      .entity-search-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+
+      .entity-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        height: 300px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        z-index: 1000;
+        margin-top: 2px;
+      }
+
+      .entity-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+      }
+
+      .entity-option:hover {
+        background: #f5f5f5;
+      }
+
+      .entity-option.selected {
+        background: #e3f2fd;
+      }
+
+      .entity-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        justify-content: space-between;
+      }
+
+      .entity-details {
+        flex: 1;
+      }
+
+      .entity-name {
+        font-weight: 500;
+        font-size: 14px;
+        color: #000;
+      }
+
+      .entity-id {
+        font-size: 12px;
+        color: #000;
+        font-family: monospace;
+      }
+
+      .check-icon {
+        color: #4CAF50;
+      }
+
+      .no-results {
+        padding: 12px;
+        text-align: center;
+        color: #666;
+        font-style: italic;
+      }
+
+      .selected-entities {
+        margin-top: 8px;
+      }
+
+      .selected-label {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 4px;
+        color: #333;
+      }
+
+      .selected-entity-config {
+        margin-bottom: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        background: #f9f9f9;
+      }
+
+      .selected-entity {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: #000;
+        justify-content: space-between;
+      }
+
+      .remove-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        color: #666;
+        margin-left: auto;
+      }
+
+      .remove-btn:hover {
+        color: rgb(255, 0, 0);
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .help-text {
+        font-size: 0.85em;
+        color: #666;
+        margin-top: 4px;
+      }
+    `;
+  }
+
+  render() {
+    if (!this.hass) return html``;
+
+    return html`
+      <div class="form">
+        <!-- 天气实体列表 -->
+        <div class="form-group">
+          <label>天气实体（支持多选，弹出时垂直分布）</label>
+          <div class="entity-selector">
+            <input
+              type="text"
+              @input=${this._onEntitySearch}
+              @focus=${this._onEntitySearch}
+              .value=${this._searchTerm || ''}
+              placeholder="搜索天气实体..."
+              class="entity-search-input"
+            />
+            ${this._showEntityList ? html`
+              <div class="entity-dropdown">
+                ${this._filteredEntities.map(entity => html`
+                  <div
+                    class="entity-option ${this.config.entities && this.config.entities.some(e => e.entity_id === entity.entity_id) ? 'selected' : ''}"
+                    @click=${() => this._toggleEntity(entity.entity_id)}
+                  >
+                    <div class="entity-info">
+                      <div class="entity-details">
+                        <div class="entity-name">${entity.attributes.friendly_name || entity.entity_id}</div>
+                        <div class="entity-id">${entity.entity_id}</div>
+                      </div>
+                      <ha-icon icon="${entity.attributes.icon || 'mdi:weather-partly-cloudy'}"></ha-icon>
+                    </div>
+                    ${this.config.entities && this.config.entities.some(e => e.entity_id === entity.entity_id) ?
+                      html`<ha-icon icon="mdi:check" class="check-icon"></ha-icon>` : ''}
+                  </div>
+                `)}
+                ${this._filteredEntities.length === 0 ? html`
+                  <div class="no-results">未找到匹配的实体</div>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+          <div class="selected-entities">
+            ${this.config.entities && this.config.entities.length > 0 ? html`
+              <div class="selected-label">已选择的天气实体：</div>
+              ${this.config.entities.map((entityConfig, index) => {
+                const entity = this.hass.states[entityConfig.entity_id];
+                return html`
+                  <div class="selected-entity-config">
+                    <div class="selected-entity">
+                      <span>${entity?.attributes.friendly_name || entityConfig.entity_id}</span>
+                      <ha-icon icon="${entity?.attributes.icon || 'mdi:weather-partly-cloudy'}"></ha-icon>
+                      <button class="remove-btn" @click=${() => this._removeEntity(index)}>
+                        <ha-icon icon="mdi:close"></ha-icon>
+                      </button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                      <!-- 自动更新 -->
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; min-width: 80px;color: #000;">自动更新</span>
+                        <select style="font-size: 12px; padding: 4px; flex: 1;"
+                          @change=${(e) => this._updateEntityParam(index, 'auto_refresh_on_load', e.target.value === 'true')}
+                          .value=${String(entityConfig.auto_refresh_on_load || false)}
+                        >
+                          <option value="false">否（不自动更新）</option>
+                          <option value="true">是（打开时自动更新数据）</option>
+                        </select>
+                      </div>
+                      <!-- 视觉样式 -->
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; min-width: 80px;color: #000;">视觉样式</span>
+                        <select style="font-size: 12px; padding: 4px; flex: 1;"
+                          @change=${(e) => this._updateEntityParam(index, 'visual_style', e.target.value)}
+                          .value=${entityConfig.visual_style || 'button'}
+                        >
+                          <option value="button">按钮模式</option>
+                          <option value="dot">圆点模式</option>
+                        </select>
+                      </div>
+                      <!-- 预报列数 -->
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; min-width: 80px;color: #000;">预报列数</span>
+                        <select style="font-size: 12px; padding: 4px; flex: 1;"
+                          @change=${(e) => this._updateEntityParam(index, 'columns', parseInt(e.target.value) || 9)}
+                          .value=${String(entityConfig.columns || 9)}
+                        >
+                          <option value="7">7列</option>
+                          <option value="8">8列</option>
+                          <option value="9">9列</option>
+                          <option value="10">10列</option>
+                        </select>
+                      </div>
+                      <!-- 图标模式 -->
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; min-width: 80px;color: #000;">图标模式</span>
+                        <select style="font-size: 12px; padding: 4px; flex: 1;"
+                          @change=${(e) => this._updateEntityParam(index, 'mode', e.target.value)}
+                          .value=${entityConfig.mode || '家'}
+                        >
+                          <option value="家">家</option>
+                          <option value="手机定位">手机定位</option>
+                          <option value="搜索城市">搜索城市</option>
+                        </select>
+                      </div>
+                      <!-- 是否使用自定义实体替换实时温湿度 -->
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; min-width: 80px;color: #000;">替换温湿度</span>
+                        <input type="checkbox"
+                          .checked=${entityConfig.use_custom_entities === true}
+                          @change=${(e) => this._updateEntityParam(index, 'use_custom_entities', e.target.checked)}
+                        />
+                      </div>
+                      ${entityConfig.use_custom_entities ? html`
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span style="font-size: 12px; min-width: 80px;color: #000;">温度实体</span>
+                          <input type="text" style="font-size: 12px; padding: 4px; flex: 1;"
+                            .value=${entityConfig.temperature_entity || ''}
+                            placeholder="sensor.xxx_temperature"
+                            @change=${(e) => this._updateEntityParam(index, 'temperature_entity', e.target.value)}
+                          />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span style="font-size: 12px; min-width: 80px;color: #000;">湿度实体</span>
+                          <input type="text" style="font-size: 12px; padding: 4px; flex: 1;"
+                            .value=${entityConfig.humidity_entity || ''}
+                            placeholder="sensor.xxx_humidity"
+                            @change=${(e) => this._updateEntityParam(index, 'humidity_entity', e.target.value)}
+                          />
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+                `;
+              })}
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- 按钮显示哪个实体的数据 -->
+        <div class="form-group">
+          <label>按钮显示哪个实体的数据</label>
+          <select
+            @change=${this._entityChanged}
+            .value=${this.config.display_entity || (this.config.entities && this.config.entities.length > 0 ? this.config.entities[0].entity_id : '')}
+            name="display_entity"
+          >
+            <option value="">默认（第一个实体）</option>
+            ${(this.config.entities || []).map(entityConfig => html`
+              <option value="${entityConfig.entity_id}"
+                .selected=${this.config.display_entity === entityConfig.entity_id}>
+                ${entityConfig.entity_id}
+              </option>
+            `)}
+          </select>
+          <div class="help-text">选择按钮上显示哪个实体的天气图标和文字</div>
+        </div>
+
+        <!-- 主题 -->
+        <div class="form-group">
+          <label>主题</label>
+          <select
+            @change=${this._entityChanged}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            name="theme"
+          >
+            <option value="on">浅色主题（白底黑字）</option>
+            <option value="off">深色主题（深灰底白字）</option>
+          </select>
+        </div>
+
+        <!-- 按钮宽度 -->
+        <div class="form-group">
+          <label>按钮宽度：默认16.8vw，支持像素(px)和百分比(%)</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.button_width !== undefined ? this.config.button_width : '16.8vw'}
+            name="button_width"
+            placeholder="默认16.8vw"
+          />
+        </div>
+
+        <!-- 按钮高度 -->
+        <div class="form-group">
+          <label>按钮高度：支持像素(px)、百分比(%)和视窗高度(vh)，默认24px</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.button_height !== undefined ? this.config.button_height : '24px'}
+            name="button_height"
+            placeholder="默认24px"
+          />
+        </div>
+
+        <!-- 按钮文字大小 -->
+        <div class="form-group">
+          <label>按钮文字大小：支持像素(px)，默认11px</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.button_font_size !== undefined ? this.config.button_font_size : '11px'}
+            name="button_font_size"
+            placeholder="默认11px"
+          />
+        </div>
+
+        <!-- 按钮图标大小 -->
+        <div class="form-group">
+          <label>按钮图标大小：支持像素(px)，默认18px</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.button_icon_size !== undefined ? this.config.button_icon_size : '18px'}
+            name="button_icon_size"
+            placeholder="默认18px"
+          />
+        </div>
+
+        <!-- 弹窗宽度 -->
+        <div class="form-group">
+          <label>弹窗宽度：支持像素(px)、百分比(%)和auto，默认auto</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.popup_width !== undefined ? this.config.popup_width : 'auto'}
+            name="popup_width"
+            placeholder="默认auto"
+          />
+        </div>
+
+        <!-- 弹窗位置 -->
+        <div class="form-group">
+          <label>弹窗位置：支持百分比(%)，默认50%居中</label>
+          <input
+            type="text"
+            @change=${this._entityChanged}
+            .value=${this.config.popup_top !== undefined ? this.config.popup_top : '50%'}
+            name="popup_top"
+            placeholder="默认50%"
+          />
+        </div>
+
+        <!-- 透明背景 -->
+        <div class="checkbox-group">
+          <input
+            type="checkbox"
+            class="checkbox-input"
+            @change=${this._entityChanged}
+            .checked=${this.config.transparent_bg === true}
+            name="transparent_bg"
+            id="transparent_bg"
+          />
+          <label for="transparent_bg">透明背景（勾选后按钮背景透明）</label>
+        </div>
+
+      </div>
+    `;
+  }
+
+  _entityChanged(e) {
+    const { name, value, type, checked } = e.target;
+
+    let finalValue;
+    if (type === 'checkbox') {
+      finalValue = checked;
+    } else {
+      if (name === 'auto_refresh_on_load') {
+        finalValue = value === 'true';
+      } else if (name === 'columns') {
+        finalValue = parseInt(value) || 9;
+      } else {
+        finalValue = value;
+      }
+    }
+
+    this.config = {
+      ...this.config,
+      [name]: finalValue
+    };
+
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this.config },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  _onEntitySearch(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    this._searchTerm = searchTerm;
+    this._showEntityList = true;
+
+    if (!this.hass) return;
+
+    const allEntities = Object.values(this.hass.states);
+    this._filteredEntities = allEntities.filter(entity => {
+      const entityId = entity.entity_id.toLowerCase();
+      const friendlyName = (entity.attributes.friendly_name || '').toLowerCase();
+      return (entityId.startsWith('weather.') || entityId.includes('weather')) &&
+        (entityId.includes(searchTerm) || friendlyName.includes(searchTerm));
+    }).slice(0, 50);
+
+    this.requestUpdate();
+  }
+
+  _toggleEntity(entityId) {
+    const currentEntities = this.config.entities || [];
+    let newEntities;
+
+    if (currentEntities.some(e => e.entity_id === entityId)) {
+      newEntities = currentEntities.filter(e => e.entity_id !== entityId);
+    } else {
+      newEntities = [...currentEntities, { entity_id: entityId }];
+    }
+
+    this.config = {
+      ...this.config,
+      entities: newEntities
+    };
+
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this.config },
+      bubbles: true,
+      composed: true
+    }));
+
+    this.requestUpdate();
+  }
+
+  _removeEntity(index) {
+    const currentEntities = this.config.entities || [];
+    const newEntities = currentEntities.filter((_, i) => i !== index);
+
+    this.config = {
+      ...this.config,
+      entities: newEntities
+    };
+
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this.config },
+      bubbles: true,
+      composed: true
+    }));
+
+    this.requestUpdate();
+  }
+
+  _updateEntityParam(index, paramName, value) {
+    const currentEntities = this.config.entities || [];
+    const newEntities = [...currentEntities];
+    if (newEntities[index]) {
+      newEntities[index] = {
+        ...newEntities[index],
+        [paramName]: value
+      };
+      // 清理自定义实体相关参数
+      if (paramName === 'use_custom_entities' && !value) {
+        delete newEntities[index].temperature_entity;
+        delete newEntities[index].humidity_entity;
+      }
+    }
+
+    this.config = {
+      ...this.config,
+      entities: newEntities
+    };
+
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this.config },
+      bubbles: true,
+      composed: true
+    }));
+
+    this.requestUpdate();
+  }
+
+  firstUpdated() {
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.entity-selector')) {
+        this._showEntityList = false;
+        this.requestUpdate();
+      }
+    });
+  }
+
+  constructor() {
+    super();
+    this._searchTerm = '';
+    this._filteredEntities = [];
+    this._showEntityList = false;
+  }
+
+  setConfig(config) {
+    this.config = config;
+  }
+}
+customElements.define('xiaoshi-weather-phone-button-editor', XiaoshiWeatherPhoneButtonEditor);
+
+class XiaoshiWeatherPhoneButton extends LitElement {
+  static get properties() {
+    return {
+      hass: Object,
+      config: Object,
+      theme: { type: String }
+    };
+  }
+
+  static get ICON_PATH() {
+    return '/qweather/icon';
+  }
+
+  static get styles() {
+    return css`
+      :host {
+        display: block;
+        width: var(--card-width, 100%);
+      }
+
+      .weather-button {
+        width: var(--button-width, 16.8vw);
+        height: var(--button-height, 24px);
+        padding: 0;
+        margin: 0;
+        background: var(--bg-color, #fff);
+        color: var(--fg-color, #000);
+        border-radius: 10px;
+        font-size: var(--button-font-size, 11px);
+        font-weight: 500;
+        text-align: center;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .weather-button-icon {
+        width: var(--button-icon-size, 18px);
+        height: var(--button-icon-size, 18px);
+        flex-shrink: 0;
+        object-fit: contain;
+      }
+
+      .weather-button-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1;
+        min-width: 2.5em;
+        text-align: center;
+      }
+    `;
+  }
+
+  constructor() {
+    super();
+    this.theme = 'on';
+    // 弹窗
+    this._popupOverlay = null;
+    this._popupElement = null;
+    this._popupCardElement = null;
+    this._popupEscHandler = null;
+    this._popupHassUnsubscribe = null;
+    this._popupUpdatePending = false;
+    this._popupHass = null;
+  }
+
+  static getConfigElement() {
+    return document.createElement("xiaoshi-weather-phone-button-editor");
+  }
+
+  setConfig(config) {
+    this.config = {
+      ...config
+    };
+    if (config.button_width) {
+      this.style.setProperty('--button-width', config.button_width);
+    } else {
+      this.style.setProperty('--button-width', '16.8vw');
+    }
+    if (config.button_height) {
+      this.style.setProperty('--button-height', config.button_height);
+    } else {
+      this.style.setProperty('--button-height', '24px');
+    }
+    if (config.button_font_size) {
+      this.style.setProperty('--button-font-size', config.button_font_size);
+    } else {
+      this.style.setProperty('--button-font-size', '11px');
+    }
+    if (config.button_icon_size) {
+      this.style.setProperty('--button-icon-size', config.button_icon_size);
+    } else {
+      this.style.setProperty('--button-icon-size', '18px');
+    }
+    if (config.popup_width) {
+      this.style.setProperty('--card-width', config.popup_width);
+    } else {
+      this.style.setProperty('--card-width', '100%');
+    }
+    if (config.theme) {
+      this.setAttribute('theme', config.theme);
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.setAttribute('theme', this._evaluateTheme());
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._closePopup();
+  }
+
+  _evaluateTheme() {
+    try {
+      if (!this.config || !this.config.theme) return 'on';
+      if (typeof this.config.theme === 'function') {
+        return this.config.theme();
+      }
+      if (typeof this.config.theme === 'string') {
+        if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
+          const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
+          if (match && match[1]) {
+            const code = match[1].trim();
+            if (code.startsWith('return')) {
+              return (new Function(code))();
+            }
+            return (new Function(`return ${code}`))();
+          }
+        }
+        if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
+          return (new Function(`return ${this.config.theme}`))();
+        }
+      }
+      return this.config.theme;
+    } catch(e) {
+      return 'on';
+    }
+  }
+
+  _getWeatherIcon(condition) {
+    const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
+    const theme = this._evaluateTheme();
+    const isDark = theme === 'on';
+    const iconPath = XiaoshiWeatherPhoneButton.ICON_PATH;
+
+    const iconMap = {
+      '晴': isDark ?
+        (sunState === 'above_horizon' ? `${iconPath}/晴-白天-暗黑.svg` : `${iconPath}/晴-夜晚-暗黑.svg`) :
+        (sunState === 'above_horizon' ? `${iconPath}/晴-白天.svg` : `${iconPath}/晴-夜晚.svg`),
+      '少云': isDark ?
+        (sunState === 'above_horizon' ? `${iconPath}/少云-白天-暗黑.svg` : `${iconPath}/少云-夜晚-暗黑.svg`) :
+        (sunState === 'above_horizon' ? `${iconPath}/少云-白天.svg` : `${iconPath}/少云-夜晚.svg`),
+      '多云': isDark ?
+        (sunState === 'above_horizon' ? `${iconPath}/多云-白天-暗黑.svg` : `${iconPath}/多云-夜晚-暗黑.svg`) :
+        (sunState === 'above_horizon' ? `${iconPath}/多云-白天.svg` : `${iconPath}/多云-夜晚.svg`),
+      '阴': isDark ? `${iconPath}/阴-暗黑.svg` : `${iconPath}/阴.svg`,
+      '雨夹雪': isDark ? `${iconPath}/雨夹雪-暗黑.svg` : `${iconPath}/雨夹雪.svg`,
+      '小雨': isDark ? `${iconPath}/小雨-暗黑.svg` : `${iconPath}/小雨.svg`,
+      '小雪': isDark ? `${iconPath}/小雪-暗黑.svg` : `${iconPath}/小雪.svg`,
+      'clear-night': isDark ? `${iconPath}/晴-夜晚-暗黑.svg` : `${iconPath}/晴-夜晚.svg`,
+      'cloudy': isDark ? `${iconPath}/多云-暗黑.svg` : `${iconPath}/多云.svg`,
+      'partlycloudy': isDark ? `${iconPath}/少云-暗黑.svg` : `${iconPath}/少云.svg`,
+      'sunny': isDark ? `${iconPath}/晴-白天-暗黑.svg` : `${iconPath}/晴-白天.svg`,
+      'rainy': isDark ? `${iconPath}/小雨-暗黑.svg` : `${iconPath}/小雨.svg`,
+      'snowy': isDark ? `${iconPath}/小雪-暗黑.svg` : `${iconPath}/小雪.svg`,
+      'snowy-rainy': isDark ? `${iconPath}/雨夹雪-暗黑.svg` : `${iconPath}/雨夹雪.svg`
+    };
+
+    return iconMap[condition] || (isDark ? `${iconPath}/${condition}-暗黑.svg` : `${iconPath}/${condition}.svg`);
+  }
+
+  _getWarningColorForLevel(level) {
+    if (level === "红色") return "rgb(255,50,50)";
+    if (level === "橙色") return "rgb(255,100,0)";
+    if (level === "黄色") return "rgb(255,200,0)";
+    if (level === "蓝色") return "rgb(50,150,200)";
+    if (level === "灰色") {
+      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
+    }
+    return "#FFA726";
+  }
+
+  _getWarningColor(warning) {
+    if (!warning || warning.length === 0) return null;
+
+    let level = "";
+    const priority = ["红色", "橙色", "黄色", "蓝色", "灰色"];
+
+    for (let i = 0; i < warning.length; i++) {
+      const currentLevel = warning[i].level;
+      if (priority.indexOf(currentLevel) < priority.indexOf(level) || level === "") {
+        level = currentLevel;
+      }
+    }
+
+    return this._getWarningColorForLevel(level);
+  }
+
+  _handleClick() {
+    const hapticEvent = new Event('haptic', {
+      bubbles: true,
+      cancelable: false,
+      composed: true
+    });
+    hapticEvent.detail = 'light';
+    this.dispatchEvent(hapticEvent);
+  }
+
+  _evaluateTemplate(template) {
+    if (!template || typeof template !== 'string') return template;
+    if (template.includes('[[[') && template.includes(']]]')) {
+      try {
+        const match = template.match(/\[\[\[\s*([\s\S]*?)\s*\]\]\]/);
+        if (match && match[1]) {
+          const code = match[1].trim();
+          const hass = this.hass;
+          const states = hass?.states || {};
+          const user = hass?.user || {};
+          const func = new Function('hass', 'states', 'user', code);
+          return func(hass, states, user);
+        }
+      } catch(e) {
+        return template;
+      }
+    }
+    return template;
+  }
+
+  _getDisplayEntity() {
+    const entities = this.config.entities || [];
+    if (entities.length === 0) return null;
+
+    const rawDisplayEntityId = this.config.display_entity || entities[0].entity_id;
+    const entityId = this._evaluateTemplate(rawDisplayEntityId);
+    return this.hass?.states[entityId] || null;
+  }
+
+  render() {
+    if (!this.hass) return html``;
+
+    const theme = this._evaluateTheme();
+    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const transparentBg = this.config.transparent_bg === true;
+    const buttonBgColor = transparentBg ? 'transparent' : (theme === 'on' ? 'rgb(255, 255, 255, 0.6)' : 'rgb(83, 83, 83, 0.6)');
+
+    const displayEntity = this._getDisplayEntity();
+    if (!displayEntity) {
+      return html`
+        <div class="weather-button" style="--bg-color: ${buttonBgColor}; --fg-color: ${fgColor};" @click=${this._handleButtonClick}>
+          <span class="weather-button-text" style="color: ${fgColor};">未配置</span>
+        </div>
+      `;
+    }
+
+    const condition = displayEntity.attributes?.condition_cn || displayEntity.state || '未知';
+    const warning = displayEntity.attributes?.warning || [];
+    const hasWarning = warning && Array.isArray(warning) && warning.length > 0;
+
+    // 根据预警决定文字颜色：有预警取预警颜色，没预警按主题取黑或白
+    const textColor = hasWarning ? this._getWarningColor(warning) : fgColor;
+
+    // 天气图标
+    const iconSrc = this._getWeatherIcon(condition);
+
+    return html`
+      <div class="weather-button" style="--bg-color: ${buttonBgColor}; --fg-color: ${textColor};" @click=${this._handleButtonClick}>
+        <img class="weather-button-icon" src="${iconSrc}" alt="${condition}" />
+        <span class="weather-button-text" style="color: ${textColor};">${condition}</span>
+      </div>
+    `;
+  }
+
+  _handleButtonClick() {
+    this._handleClick();
+
+    const entities = this.config.entities || [];
+    if (entities.length === 0) return;
+
+    const cards = [];
+
+    // 为每个实体创建一个天气卡片，使用每个实体各自的参数
+    entities.forEach(entityConfig => {
+      const rawEntityId = entityConfig.entity_id;
+      // 支持 [[[ ]]] 模板语法解析 entity_id
+      const entityId = this._evaluateTemplate(rawEntityId);
+
+      // 构建天气卡片配置，排除按钮专用参数和实体级参数
+      const excludedParams = ['type', 'button_height', 'button_width', 'button_font_size',
+        'button_icon_size', 'popup_top', 'popup_width', 'transparent_bg',
+        'entities', 'display_entity',
+        'auto_refresh_on_load', 'visual_style', 'columns', 'mode',
+        'use_custom_entities', 'temperature_entity', 'humidity_entity'];
+
+      const weatherCardConfig = { entity: entityId };
+      Object.keys(this.config).forEach(key => {
+        if (!excludedParams.includes(key)) {
+          weatherCardConfig[key] = this.config[key];
+        }
+      });
+
+      // 合并每个实体自己的参数（覆盖全局参数）
+      if (entityConfig.auto_refresh_on_load !== undefined) weatherCardConfig.auto_refresh_on_load = entityConfig.auto_refresh_on_load;
+      if (entityConfig.visual_style !== undefined) weatherCardConfig.visual_style = entityConfig.visual_style;
+      if (entityConfig.columns !== undefined) weatherCardConfig.columns = entityConfig.columns;
+      if (entityConfig.mode !== undefined) weatherCardConfig.mode = entityConfig.mode;
+      if (entityConfig.use_custom_entities !== undefined) weatherCardConfig.use_custom_entities = entityConfig.use_custom_entities;
+      if (entityConfig.temperature_entity) weatherCardConfig.temperature_entity = entityConfig.temperature_entity;
+      if (entityConfig.humidity_entity) weatherCardConfig.humidity_entity = entityConfig.humidity_entity;
+
+      cards.push({
+        type: 'custom:xiaoshi-weather-phone-card',
+        ...weatherCardConfig
+      });
+    });
+
+    // 多实体时使用 vertical-stack
+    const popupContent = cards.length === 1 ? cards[0] : {
+      type: 'vertical-stack',
+      cards: cards
+    };
+
+    this._showNativePopup(popupContent);
+  }
+
+  // ==========================================
+  // 原生弹窗方法
+  // ==========================================
+  static _injectPopupStyles() {
+    if (XiaoshiWeatherPhoneButton._stylesInjected) return;
+    XiaoshiWeatherPhoneButton._stylesInjected = true;
+    const style = document.createElement('style');
+    style.id = 'xiaoshi-weather-button-popup-style';
+    style.textContent = `
+      @keyframes xiaoshiWeatherButtonPopupIn {
+        from { opacity: 0; scale: 0.95; }
+        to   { opacity: 1; scale: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  _showNativePopup(popupContent) {
+    this.constructor._injectPopupStyles();
+
+    const haRoot = document.querySelector('home-assistant');
+    const hassObj = haRoot?.hass || haRoot?.shadowRoot?.querySelector('home-assistant-main')?.hass;
+    if (!hassObj) return;
+
+    if (this._popupOverlay) {
+      this._closePopup();
+    }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+    `;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this._closePopup();
+    });
+
+    const popupTop = this.config.popup_top || '50%';
+    const popupWidth = this.config.popup_width || 'auto';
+    const popupTransform = popupTop === '50%' ? 'translate(-50%, -50%)' : 'translateX(-50%)';
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: fixed;
+      top: ${popupTop}; left: 50%;
+      transform: ${popupTransform};
+      z-index: 1005;
+      background: transparent;
+      padding: 0;
+      width: ${popupWidth};
+      max-width: 100vw;
+      max-height: 100vh;
+      overflow: hidden;
+      box-sizing: border-box;
+      animation: xiaoshiWeatherButtonPopupIn 0.2s ease-out;
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+
+    this._popupOverlay = overlay;
+    this._popupElement = popup;
+
+    this._createPopupCard(popup, popupContent, hassObj);
+
+    this._popupEscHandler = (e) => {
+      if (e.key === 'Escape') this._closePopup();
+    };
+    window.addEventListener('keydown', this._popupEscHandler);
+  }
+
+  async _createPopupCard(container, cardConfig, hassObj) {
+    try {
+      const helpers = await window.loadCardHelpers?.();
+      if (helpers) {
+        const cardElement = await helpers.createCardElement(cardConfig);
+        cardElement.hass = hassObj;
+        container.appendChild(cardElement);
+        this._popupCardElement = cardElement;
+        this._startPopupHassWatcher(hassObj);
+      } else {
+        container.innerHTML = '<div style="color:red;padding:20px;">loadCardHelpers 不可用</div>';
+      }
+    } catch (err) {
+      container.innerHTML = `<div style="color:red;padding:20px;">加载失败: ${err.message}</div>`;
+    }
+  }
+
+  _closePopup() {
+    if (this._popupOverlay) {
+      this._popupOverlay.remove();
+      this._popupOverlay = null;
+    }
+    if (this._popupElement) {
+      this._popupElement.remove();
+      this._popupElement = null;
+    }
+    this._popupCardElement = null;
+    if (this._popupEscHandler) {
+      window.removeEventListener('keydown', this._popupEscHandler);
+      this._popupEscHandler = null;
+    }
+    if (this._popupHassUnsubscribe) {
+      this._popupHassUnsubscribe();
+      this._popupHassUnsubscribe = null;
+    }
+    this._popupUpdatePending = false;
+    this._popupHass = null;
+  }
+
+  _startPopupHassWatcher(hassObj) {
+    if (this._popupHassUnsubscribe) return;
+    this._popupHass = hassObj;
+    if (!hassObj || !hassObj.connection) {
+      setTimeout(() => this._startPopupHassWatcher(hassObj), 500);
+      return;
+    }
+    try {
+      hassObj.connection.subscribeMessage(
+        () => {
+          if (!this._popupCardElement) return;
+          this._schedulePopupUpdate();
+        },
+        { type: 'subscribe_events', event_type: 'state_changed' }
+      ).then((unsub) => {
+        this._popupHassUnsubscribe = unsub;
+      });
+    } catch (err) {
+      // 订阅失败，忽略
+    }
+  }
+
+  _schedulePopupUpdate() {
+    if (this._popupUpdatePending) return;
+    this._popupUpdatePending = true;
+    requestAnimationFrame(() => {
+      this._popupUpdatePending = false;
+      if (!this._popupCardElement) return;
+      const haRoot = document.querySelector('home-assistant');
+      const newHass = haRoot?.hass || haRoot?.shadowRoot?.querySelector('home-assistant-main')?.hass;
+      if (!newHass) return;
+      if (newHass === this._popupHass) return;
+      this._popupHass = newHass;
+      this._updatePopupCard();
+    });
+  }
+
+  _updatePopupCard() {
+    if (this._popupCardElement && this._popupHass) {
+      try {
+        this._popupCardElement.hass = this._popupHass;
+      } catch (err) {
+        // 更新失败，忽略
+      }
+    }
+  }
+
+  getCardSize() {
+    return 1;
+  }
+}
+customElements.define('xiaoshi-weather-phone-button', XiaoshiWeatherPhoneButton);
+
 window.customCards = window.customCards || [];
 window.customCards.push(
+  {
+    type: 'xiaoshi-weather-phone-button',
+    name: '消逝天气按钮卡片',
+    description: '消逝天气按钮卡片，点击弹出天气详情',
+    preview: true
+  },
   {
     type: "xiaoshi-weather-phone-card",
     name: "消逝天气卡片（手机端）",
