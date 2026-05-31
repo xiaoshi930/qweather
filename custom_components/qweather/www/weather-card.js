@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 6.1 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 6.2 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -109,11 +109,12 @@ class XiaoshiWeatherPhoneEditor extends LitElement {
           <label>主题</label>
           <select 
             @change=${this._entityChanged}
-            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'system'}
             name="theme"
           >
-            <option value="on">浅色主题（白底黑字）</option>
-            <option value="off">深色主题（深灰底白字）</option>
+            <option value="system">跟随系统</option>
+            <option value="light">浅色主题（白底黑字）</option>
+            <option value="dark">深色主题（黑底白字）</option>
           </select>
         </div>
 
@@ -978,11 +979,11 @@ class XiaoshiWeatherPhoneCard extends LitElement {
         height: 100%;
         transition: all 0.3s ease;
       } 
-      .input-container.on {
+      .input-container.light {
         background-color: rgb(255,255,255);
         color: black;
       }
-      .input-container.off {
+      .input-container.dark {
         background-color: rgb(50,50,50);
         color: white;
       }
@@ -1087,35 +1088,24 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   }
   
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -1158,7 +1148,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
     const theme = this._evaluateTheme();
-    const isDark = theme === 'on';
+    const isDark = theme === 'dark';
     const iconPath = XiaoshiWeatherPhoneCard.ICON_PATH;
     
     const iconMap = {
@@ -1824,7 +1814,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
     if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'light' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
     }
     
     return "#FFA726"; // 默认颜色
@@ -1848,7 +1838,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
     if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'light' ? 'rgba(0, 0, 0)' : 'rgba(220, 220, 220)';
     }
     
     return "#FFA726"; // 默认颜色
@@ -1966,14 +1956,14 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const sunSet = this.entity.attributes?.sun.sunset || '无';
 
     // 获取颜色
-    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
-    const bgColor = theme === 'on' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)';
-    const secondaryColor = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
+    const fgColor = theme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const bgColor = theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(50, 50, 50)';
+    const secondaryColor = theme === 'light' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
 
     return html`
-      <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor};">
+      <div class="weather-card ${theme === 'light' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor};">
         <div class="main-content">
           <!-- 天气头部信息 -->
           <div class="weather-header">
@@ -2076,8 +2066,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const forecastDays = this._getForecastDays();
     const extremes = this._getTemperatureExtremes();
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const secondaryColor = theme === 'light' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
 
     // 生成温度曲线坐标
     const highTempData = this._generateTemperatureLine(forecastDays, extremes, true);
@@ -2132,17 +2122,17 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
           const hightbackground = isYesterday ? 
                 'linear-gradient(to bottom,rgba(255, 87, 34) 0%,rgba(255, 152, 0) 100%)':
-                theme === 'on' ? 
+                theme === 'light' ? 
                 'linear-gradient(to bottom,rgb(250, 149, 117) 0%,rgb(250, 188, 97) 100%)':
                 'linear-gradient(to bottom,rgb(181, 81, 49) 0%,rgb(181, 120, 28) 100%)';
           const lowbackground = isYesterday ?  
                 'linear-gradient(to bottom,rgba(3, 169, 243) 0%,rgba(33, 150, 243) 100%)':
-                theme === 'on' ? 
+                theme === 'light' ? 
                 'linear-gradient(to bottom,rgb(99, 198, 243) 0%,rgb(117, 187, 243)100%)':
                 'linear-gradient(to bottom,rgb(30, 130, 174) 0%,rgb(48, 118, 174) 100%)';
                 
-          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
-          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'light' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'light' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
  
           // 计算温度矩形的动态边界和高度
           const tempBounds = this._calculateTemperatureBounds(day, extremes);
@@ -2221,8 +2211,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const hourlyForecast = this._getHourlyForecast();
     const extremes = this._getTemperatureExtremes();
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const secondaryColor = theme === 'light' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（小时天气只有一个温度）
     const tempData = this._generateTemperatureLine(hourlyForecast, extremes, true);
@@ -2340,8 +2330,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
     const minutelyForecast = this._getMinutelyForecast();
     const extremes = this._getTemperatureExtremes();
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const secondaryColor = theme === 'light' ? 'rgb(60, 140, 190)' : 'rgb(110, 190, 240)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（分钟天气只有一个温度）
     const tempData = this._generateTemperatureLine(minutelyForecast, extremes, true);
@@ -2502,7 +2492,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _renderWindInfo(forecastDays) {
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    const secondaryColor = theme === 'light' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
     return html`
       ${forecastDays.map(day => {
         const windSpeedRaw = day.windscaleday || 0;
@@ -2569,7 +2559,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _renderHourlyWindInfo(hourlyForecast) {
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    const secondaryColor = theme === 'light' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
     return html`
       ${hourlyForecast.map(hour => {
         const windSpeedRaw = hour.windscaleday || 0;
@@ -2599,7 +2589,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _renderMinutelyWindInfo(minutelyForecast) {
     const theme = this._evaluateTheme();
-    const secondaryColor = theme === 'on' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
+    const secondaryColor = theme === 'light' ? 'rgb(10, 90, 140)' : 'rgb(110, 190, 240)';
     return html`
       ${minutelyForecast.map(minute => {
         const windSpeedRaw = minute.windscaleday || 0;
@@ -2634,8 +2624,8 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     const warning = this.entity.attributes.warning;
     const theme = this._evaluateTheme();
-    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const textcolor = theme === 'light' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     return html`
       <div class="warning-details-card" style=" background-color: ${backgroundColor};">
         ${warning.map((warningItem, index) => {
@@ -2671,10 +2661,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
   _renderAqiDetails() {
     const theme = this._evaluateTheme();
-    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
-    const backgroundColor = theme === 'on' ? 'rgba(50,50,50, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-    const secondaryColor = theme === 'on' ? 'rgba(100, 100, 100, 0.7)' : 'rgba(200, 200, 200, 0.7)';
-    const secondaryColorblue = theme === 'on' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
+    const textcolor = theme === 'light' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const backgroundColor = theme === 'light' ? 'rgba(50,50,50, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const secondaryColor = theme === 'light' ? 'rgba(100, 100, 100, 0.7)' : 'rgba(200, 200, 200, 0.7)';
+    const secondaryColorblue = theme === 'light' ? 'rgb(110, 190, 240)' : 'rgb(110, 190, 240)';
     const summary = this.entity?.attributes?.minutely_summary  || ''; 
     const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     
@@ -2795,10 +2785,10 @@ class XiaoshiWeatherPhoneCard extends LitElement {
 
     const indices = this.entity.attributes.air_indices;
     const theme = this._evaluateTheme();
-    const textcolor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
-    const textcolor2 = theme === 'on' ? 'rgba(23, 140, 5, 1)' : 'rgba(10, 231, 47, 1)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
-    const backgroundColor2 = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const textcolor = theme === 'light' ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
+    const textcolor2 = theme === 'light' ? 'rgba(23, 140, 5, 1)' : 'rgba(10, 231, 47, 1)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const backgroundColor2 = theme === 'light' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
 
     return html`
       <div class="indices-details-card" style="background-color: ${backgroundColor}; border-radius: 2vw; padding: 2vw; margin-top: 1.5vw;">
@@ -2828,7 +2818,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
       this._value = currentValue;
     }
     const theme = this._evaluateTheme();
-    const themeClass = theme === 'off' ? 'off' : 'on';
+    const themeClass = theme === 'dark' ? 'dark' : 'light';
     const showPlaceholder = !this._value && !this._isEditing;
 
     return html`
@@ -3003,11 +2993,11 @@ class XiaoshiWeatherPadEditor extends LitElement {
           <label>主题</label>
           <select 
             @change=${this._entityChanged}
-            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'system'}
             name="theme"
           >
-            <option value="on">浅色主题（白底黑字）</option>
-            <option value="off">深色主题（深灰底白字）</option>
+            <option value="light">浅色主题（白底黑字）</option>
+            <option value="dark">深色主题（深灰底白字）</option>
           </select>
         </div>
 
@@ -3747,35 +3737,24 @@ class XiaoshiWeatherPadCard extends LitElement {
 
   
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -4575,17 +4554,17 @@ class XiaoshiWeatherPadCard extends LitElement {
           const theme = this._evaluateTheme();
           const hightbackground = isYesterday ? 
                 'linear-gradient(to bottom,rgba(255, 87, 34) 0%,rgba(255, 152, 0) 100%)':
-                theme === 'on' ? 
+                theme === 'light' ? 
                 'linear-gradient(to bottom,rgb(250, 149, 117) 0%,rgb(250, 188, 97) 100%)':
                 'linear-gradient(to bottom,rgb(181, 81, 49) 0%,rgb(181, 120, 28) 100%)';
           const lowbackground = isYesterday ?  
                 'linear-gradient(to bottom,rgba(3, 169, 243) 0%,rgba(33, 150, 243) 100%)':
-                theme === 'on' ? 
+                theme === 'light' ? 
                 'linear-gradient(to bottom,rgb(99, 198, 243) 0%,rgb(117, 187, 243)100%)':
                 'linear-gradient(to bottom,rgb(30, 130, 174) 0%,rgb(48, 118, 174) 100%)';
                 
-          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'on' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
-          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'on' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
+          const hightcolor = isYesterday ? 'rgba(255, 87, 34)': theme === 'light' ? 'rgb(250, 149, 117)' : 'rgb(181, 81, 49)';
+          const lowcolor = isYesterday ? 'rgba(3, 169, 243)': theme === 'light' ? 'rgb(99, 198, 243)' : 'rgb(30, 130, 174)';
 
 
 
@@ -5494,35 +5473,24 @@ class XiaoshiHourlyWeatherCard extends LitElement {
   }
 
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -5568,7 +5536,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
 
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
-    const isDark = this._evaluateTheme() === 'on';
+    const isDark = this._evaluateTheme() === 'light';
     const iconPath = XiaoshiWeatherPadCard.ICON_PATH;
     
     const iconMap = {
@@ -5825,8 +5793,8 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const hourlyForecast = this._getHourlyForecast();
     if (!hourlyForecast || hourlyForecast.length === 0) {
       const theme = this._evaluateTheme();
-      const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
-      const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
+      const backgroundColor = theme === 'light' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+      const textColor = theme === 'light' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
       
       return html`
           <div class="hourly-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" @click="${(e) => e.stopPropagation()}">
@@ -5849,10 +5817,10 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const theme = this._evaluateTheme();
 
     // 根据主题设置颜色
-    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const fgColor = theme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
     const bgColor = 'rgb(255, 255, 255, 0)';
-    const secondaryColor = theme === 'on' ? 'rgb(66, 165, 245)' : 'rgb(110, 190, 240)';
-    const modalBgColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const secondaryColor = theme === 'light' ? 'rgb(66, 165, 245)' : 'rgb(110, 190, 240)';
+    const modalBgColor = theme === 'light' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
     const hasminutely = this.entity?.attributes?.minutely_forecast && this.entity.attributes.minutely_forecast.length > 0;
     const visualStyle = this.config.visual_style || 'button';
     const isDotMode = visualStyle === 'dot';
@@ -5874,7 +5842,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
             </h3>
           </div>
           <div class="hourly-modal-body">
-            <div class="weather-card ${theme === 'on' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
+            <div class="weather-card ${theme === 'light' ? 'dark-theme' : ''} ${isDotMode ? 'dot-mode' : ''}" style="background-color: ${bgColor}; color: ${fgColor}; width: calc(100% - 30px); max-width: calc(100% - 30px); margin: 0 auto;">
               <div class="main-content">
                 <!-- 天气头部信息 -->
                 <div class="weather-header">
@@ -5931,7 +5899,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const extremes = this._getHourlyTemperatureExtremes();
     const theme = this._evaluateTheme();
     const secondaryColor = 'rgb(110, 190, 240)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（小时天气只有一个温度）
     const tempData = this._generateHourlyTemperatureLine(hourlyForecast, extremes, true);
@@ -6052,7 +6020,7 @@ class XiaoshiHourlyWeatherCard extends LitElement {
     const extremes = this._getMinutelyTmperatureExtremes();
     const theme = this._evaluateTheme();
     const secondaryColor = 'rgb(110, 190, 240)';
-    const backgroundColor = theme === 'on' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const backgroundColor = theme === 'light' ? 'rgba(120, 120, 120, 0.1)' : 'rgba(255, 255, 255, 0.1)';
     
     // 生成温度曲线坐标（分钟天气只有一个温度）
     const tempData = this._generateHourlyTemperatureLine(minutelyForecast, extremes, true);
@@ -6731,35 +6699,24 @@ class XiaoshiWarningWeatherCard extends LitElement {
   }
   
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -6822,7 +6779,7 @@ class XiaoshiWarningWeatherCard extends LitElement {
     if (level == "黄色") return "rgb(255,200,0)";
     if (level == "蓝色") return "rgb(50,150,200)";
     if (level == "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'light' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
     }
     
     return "#FFA726"; // 默认颜色
@@ -6863,9 +6820,9 @@ class XiaoshiWarningWeatherCard extends LitElement {
     const warningColor = this._getWarningColor(warning); // 获取最高预警级别的颜色
     
     // 根据主题设置颜色
-    const backgroundColor = theme === 'on' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
-    const textColor = theme === 'on' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
-    const secondaryTextColor = theme === 'on' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
+    const backgroundColor = theme === 'light' ? 'rgba(255, 255, 255)' : 'rgba(50, 50, 50)';
+    const textColor = theme === 'light' ? 'rgba(0, 0, 0)' : 'rgba(250, 250, 250)';
+    const secondaryTextColor = theme === 'light' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
 
     return html`
         <div class="warning-modal-content" style="background-color: ${backgroundColor}; color: ${textColor};" >
@@ -7102,35 +7059,24 @@ class XiaoshiAqiWeatherCard extends LitElement {
   }
 
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -7210,7 +7156,7 @@ class XiaoshiAqiWeatherCard extends LitElement {
 
     const aqi = this.entity.attributes.aqi;
     const theme = this._evaluateTheme();
-    const isDark = theme === 'on';
+    const isDark = theme === 'dark';
     
     const textcolor = isDark ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
     const themeClass = isDark ? 'light-theme' : 'dark-theme';
@@ -7373,35 +7319,24 @@ class XiaoshiIndicesWeatherCard extends LitElement {
   }
 
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-          return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-          // 处理Home Assistant模板语法 [[[ return theme() ]]]
-          if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-              // 提取模板中的JavaScript代码
-              const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-              if (match && match[1]) {
-                  const code = match[1].trim();
-                  // 如果代码以return开头，直接执行
-                  if (code.startsWith('return')) {
-                      return (new Function(code))();
-                  }
-                  // 否则包装在return中执行
-                  return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
+          }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
               }
+            return 'light';
           }
-          // 处理直接的JavaScript函数字符串
-          if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-              return (new Function(`return ${this.config.theme}`))();
-          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _handleClick() {
@@ -7469,7 +7404,7 @@ class XiaoshiIndicesWeatherCard extends LitElement {
 
     const indices = this.entity.attributes.air_indices;
     const theme = this._evaluateTheme();
-    const isDark = theme === 'on';
+    const isDark = theme === 'dark';
     
     const textcolor = isDark ? 'rgba(0, 0, 0)' : 'rgba(255, 255, 255)';
     const textcolor2 = isDark ? 'rgba(23, 140, 5, 1)' : 'rgba(10, 231, 47, 1)';
@@ -7845,11 +7780,11 @@ class XiaoshiWeatherPhoneButtonEditor extends LitElement {
           <label>主题</label>
           <select
             @change=${this._entityChanged}
-            .value=${this.config.theme !== undefined ? this.config.theme : 'on'}
+            .value=${this.config.theme !== undefined ? this.config.theme : 'system'}
             name="theme"
           >
-            <option value="on">浅色主题（白底黑字）</option>
-            <option value="off">深色主题（深灰底白字）</option>
+            <option value="light">浅色主题（白底黑字）</option>
+            <option value="dark">深色主题（深灰底白字）</option>
           </select>
         </div>
 
@@ -8143,7 +8078,7 @@ class XiaoshiWeatherPhoneButton extends LitElement {
 
   constructor() {
     super();
-    this.theme = 'on';
+    this.theme = 'system';
     // 弹窗
     this._popupOverlay = null;
     this._popupElement = null;
@@ -8203,36 +8138,30 @@ class XiaoshiWeatherPhoneButton extends LitElement {
   }
 
   _evaluateTheme() {
-    try {
-      if (!this.config || !this.config.theme) return 'on';
-      if (typeof this.config.theme === 'function') {
-        return this.config.theme();
-      }
-      if (typeof this.config.theme === 'string') {
-        if (this.config.theme.includes('[[[') && this.config.theme.includes(']]]')) {
-          const match = this.config.theme.match(/\[\[\[\s*(.*?)\s*\]\]\]/);
-          if (match && match[1]) {
-            const code = match[1].trim();
-            if (code.startsWith('return')) {
-              return (new Function(code))();
-            }
-            return (new Function(`return ${code}`))();
+      try {
+          const mode = this.config ? this.config.theme : 'system';
+          if (mode === 'light') return 'light';
+          if (mode === 'dark') return 'dark';
+          if (mode === 'system' || !mode) {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+              return 'light';
           }
-        }
-        if (this.config.theme.includes('return') || this.config.theme.includes('=>')) {
-          return (new Function(`return ${this.config.theme}`))();
-        }
+          if (mode === 'function' || (typeof mode === 'string' && mode.includes('theme()'))) {
+              if (typeof window.theme === 'function') {
+                  return window.theme() || 'light';
+              }
+            return 'light';
+          }
+          return mode;
+      } catch (e) {
+          return 'light';
       }
-      return this.config.theme;
-    } catch(e) {
-      return 'on';
-    }
   }
 
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
     const theme = this._evaluateTheme();
-    const isDark = theme === 'on';
+    const isDark = theme === 'dark';
     const iconPath = XiaoshiWeatherPhoneButton.ICON_PATH;
 
     const iconMap = {
@@ -8267,7 +8196,7 @@ class XiaoshiWeatherPhoneButton extends LitElement {
     if (level === "黄色") return "rgb(255,200,0)";
     if (level === "蓝色") return "rgb(50,150,200)";
     if (level === "灰色") {
-      return this._evaluateTheme() === 'on' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
+      return this._evaluateTheme() === 'light' ? 'rgba(50, 50, 50)' : 'rgba(220, 220, 220)';
     }
     return "#FFA726";
   }
@@ -8331,9 +8260,9 @@ class XiaoshiWeatherPhoneButton extends LitElement {
     if (!this.hass) return html``;
 
     const theme = this._evaluateTheme();
-    const fgColor = theme === 'on' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+    const fgColor = theme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
     const transparentBg = this.config.transparent_bg === true;
-    const buttonBgColor = transparentBg ? 'transparent' : (theme === 'on' ? 'rgb(255, 255, 255, 0.6)' : 'rgb(83, 83, 83, 0.6)');
+    const buttonBgColor = transparentBg ? 'transparent' : (theme === 'light' ? 'rgb(255, 255, 255, 0.6)' : 'rgb(83, 83, 83, 0.6)');
 
     const displayEntity = this._getDisplayEntity();
     if (!displayEntity) {
