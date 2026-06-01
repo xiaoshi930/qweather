@@ -1,3 +1,5 @@
+## 前端卡片统一迁移到项目：https://github.com/xiaoshi930/xiaoshi
+## 后续只有数据获取需要改动时才会更新此项目
 # 和风天气-官方API版
 基于原作者https://github.com/dscao/qweather 代码修改  
 
