@@ -1148,7 +1148,7 @@ class XiaoshiWeatherPhoneCard extends LitElement {
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
     const theme = this._evaluateTheme();
-    const isDark = theme === 'dark';
+    const isDark = theme === 'light';
     const iconPath = XiaoshiWeatherPhoneCard.ICON_PATH;
     
     const iconMap = {
@@ -8161,7 +8161,7 @@ class XiaoshiWeatherPhoneButton extends LitElement {
   _getWeatherIcon(condition) {
     const sunState = this.hass?.states['sun.sun']?.state || 'above_horizon';
     const theme = this._evaluateTheme();
-    const isDark = theme === 'dark';
+    const isDark = theme === 'light';
     const iconPath = XiaoshiWeatherPhoneButton.ICON_PATH;
 
     const iconMap = {
