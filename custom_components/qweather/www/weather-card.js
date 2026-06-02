@@ -1,4 +1,4 @@
-console.info("%c 消逝卡-天气卡 \n%c        v 6.3 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
+console.info("%c 消逝卡-天气卡 \n%c        v 6.4 ", "color: red; font-weight: bold; background: black", "color: white; font-weight: bold; background: black");
 import { LitElement, html, css } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class XiaoshiWeatherPhoneEditor extends LitElement {
@@ -7842,9 +7842,9 @@ class XiaoshiWeatherPhoneButtonEditor extends LitElement {
           <input
             type="text"
             @change=${this._entityChanged}
-            .value=${this.config.popup_width !== undefined ? this.config.popup_width : 'auto'}
+            .value=${this.config.popup_width !== undefined ? this.config.popup_width : '95%'}
             name="popup_width"
-            placeholder="默认auto"
+            placeholder="默认95%"
           />
         </div>
 
@@ -7854,9 +7854,9 @@ class XiaoshiWeatherPhoneButtonEditor extends LitElement {
           <input
             type="text"
             @change=${this._entityChanged}
-            .value=${this.config.popup_top !== undefined ? this.config.popup_top : '50%'}
+            .value=${this.config.popup_top !== undefined ? this.config.popup_top : '20px'}
             name="popup_top"
-            placeholder="默认50%"
+            placeholder="默认20px"
           />
         </div>
 
@@ -8385,8 +8385,8 @@ class XiaoshiWeatherPhoneButton extends LitElement {
       if (e.target === overlay) this._closePopup();
     });
 
-    const popupTop = this.config.popup_top || '50%';
-    const popupWidth = this.config.popup_width || 'auto';
+    const popupTop = this.config.popup_top || '20px';
+    const popupWidth = this.config.popup_width || '95%';
     const popupTransform = popupTop === '50%' ? 'translate(-50%, -50%)' : 'translateX(-50%)';
 
     const popup = document.createElement('div');
