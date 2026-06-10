@@ -92,7 +92,7 @@ from .const import (
     CONDITION_CLASSES,
 )
     
-from .condition import CONDITION_MAP, EXCEPTIONAL
+from .condition import CONDITION_MAP, CONDITION_CN_MAP, EXCEPTIONAL
 _LOGGER = logging.getLogger(__name__)
 # 设置日志级别为DEBUG，确保所有调试日志都能显示
 _LOGGER.setLevel(logging.DEBUG)
@@ -1104,7 +1104,7 @@ class WeatherData(object):
             self._native_temperature = float(self._current.get("temp", 0))
             self._humidity = int(self._current.get("humidity", 0))
             self._condition = CONDITION_MAP.get(self._current.get("icon", ""), EXCEPTIONAL)
-            self._condition_cn = self._current.get("text", "")
+            self._condition_cn = CONDITION_CN_MAP.get(self._current.get("icon", ""), self._current.get("text", ""))
             self._native_pressure = int(self._current.get("pressure", 0))
             self._native_wind_speed = float(self._current.get("windSpeed", 0))
             self._wind_bearing = float(self._current.get("wind360", 0))
