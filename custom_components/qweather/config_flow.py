@@ -271,7 +271,7 @@ class QWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
 
         data_schema = vol.Schema({
-            vol.Required(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟", 99999: "99999分钟"}),
+            vol.Required(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.All(vol.Coerce(int), vol.In([10, 20, 30, 60, 99999])),
             vol.Required(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool
         })
 
@@ -359,7 +359,7 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_ZONE_OR_DEVICE, default=user_input.get(CONF_ZONE_OR_DEVICE, "")): vol.In(entity_list),
             vol.Optional("城市搜索", default=user_input.get("城市搜索", "")): str,
         }).extend({
-            vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟"}),
+            vol.Optional(CONF_UPDATE_INTERVAL, default=user_input.get(CONF_UPDATE_INTERVAL, 60)): vol.All(vol.Coerce(int), vol.In([10, 20, 30, 60, 99999])),
             vol.Optional(CONF_NO_UPDATE_AT_NIGHT, default=user_input.get(CONF_NO_UPDATE_AT_NIGHT, False)): bool,
             vol.Optional(CONF_ENABLE_HOURLY, default=user_input.get(CONF_ENABLE_HOURLY, False)): bool,
             vol.Optional(CONF_ENABLE_MINUTELY, default=user_input.get(CONF_ENABLE_MINUTELY, False)): bool,
@@ -398,7 +398,7 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
                         vol.Required(
                             CONF_UPDATE_INTERVAL,
                             default=config_data.get(CONF_UPDATE_INTERVAL, 60)
-                        ): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟", 99999: "99999分钟"}),
+                        ): vol.All(vol.Coerce(int), vol.In([10, 20, 30, 60, 99999])),
                             vol.Required(
                                 CONF_NO_UPDATE_AT_NIGHT,
                                 default=config_data.get(CONF_NO_UPDATE_AT_NIGHT, False)
@@ -482,7 +482,7 @@ class QweatherOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_UPDATE_INTERVAL,
                         default=config_data.get(CONF_UPDATE_INTERVAL, 60)
-                    ): vol.In({10: "10分钟", 20: "20分钟", 30: "30分钟", 60: "60分钟", 99999: "99999分钟"}),
+                    ): vol.All(vol.Coerce(int), vol.In([10, 20, 30, 60, 99999])),
                     vol.Required(
                         CONF_NO_UPDATE_AT_NIGHT,
                         default=config_data.get(CONF_NO_UPDATE_AT_NIGHT, False)
